@@ -72,12 +72,12 @@ void setup() {
   getUBX_ACK(turnGPSOn);*/
 
   Serial.println("Turn on GGA & RMC: ");
-  char nmea[] = "$PMTK314,1,1,1,1,1,5,1,1,1,1,1,1,0,1,1,1,1,1,1*2C\r\n";
+  //char nmea[] = "$PMTK314,1,1,1,1,1,5,1,1,1,1,1,1,0,1,1,1,1,1,1*2C\r\n";
   //char nmea[] = "$PMTK314,-1*04\r\n";                                       // Restore system default
   //char nmea[] = "$PMTK251,38400*27\r\n";                                  // Set Baudrate to 38400
   //char nmea[] = "$PMTK605*31\r\n";                                        // Query Firmware info
   //char nmea[] = "$PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28\r\n";  // Disable all messages except GGA and RMC
-  sendNMEA(nmea);
+  //sendNMEA(nmea);
   
   
   /*boolean nav = checkNAV();
@@ -150,7 +150,7 @@ void setup() {
   getUBX_ACK(setALLOff);*/
 
   // Enable NMEAs
-  /*Serial.print("Switching on all NMEA packets: ");
+  Serial.print("Switching on all NMEA packets: ");
   uint8_t setALLOn[] = {//0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10, //(GxGGA)
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x01,0x01,0xFC,0x12, //(GxGLL)
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x02,0x01,0xFD,0x14, //(GxGSA)
@@ -163,7 +163,7 @@ void setup() {
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x06,0x01,0x01,0x1C, //(GxGRS)
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x07,0x01,0x02,0x1E, //(GxGST)
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x0F,0x01,0x0A,0x2E, //(GxVLW)
-                        //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x08,0x01,0x03,0x20 //(GxZDA)
+                        //0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x08,0x01,0x03,0x20  //(GxZDA)
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF1,0x00,0x01,0xFC,0x13, //(PUBX-00)
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF1,0x01,0x01,0xFD,0x15, //(PUBX-01) Failed on Beitian BN-880
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF1,0x03,0x01,0xFF,0x19, //(PUBX-03) ?
@@ -172,7 +172,7 @@ void setup() {
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF1,0x06,0x01,0x02,0x1F  //(PUBX-06) Failed on Beitian BN-880
                         };
   sendUBX(setALLOn, sizeof(setALLOn)/sizeof(uint8_t));
-  getUBX_ACK(setALLOn);*/
+  getUBX_ACK(setALLOn);
 
   // Disable UBX
   //Serial.print("Switching off UBX: ");
@@ -225,12 +225,12 @@ void loop() {
       recvIdx = 0;
       recvBuffer[recvIdx++] = c;
       
-    } else if(c == '\r' || c == '\n' || c == '\r\n'){
+    } else if(c == '\r' || c == '\n'){ // || c == '\r\n'
       recvBuffer[recvIdx++] = 0;
       if(GPS_checksum_calc){
 
-      float data1=3.14159f;
-      rf95.send((uint8_t*)&data1, sizeof(data1));
+      //float data1=3.14159f;
+      //rf95.send((uint8_t*)&data1, sizeof(data1));
       
       //uint8_t data[] = "Sender started";
       //rf95.send(data, sizeof(data));  
@@ -292,12 +292,11 @@ void sendNMEA(char s[]) {
   }
     Serial.println(nss.print(s));
     
-    // TODO: Read return ACK/NCAK from GPS
     while(nss.available()){
-      //uint8_t packet[300];
-      //packet[] = nss.read();
-      Serial.println(nss.read());
+      char c = nss.read();
+      Serial.print(c);
     }
+    Serial.println();
 }
  
 // Calculate expected UBX ACK packet and parse UBX response from GPS
