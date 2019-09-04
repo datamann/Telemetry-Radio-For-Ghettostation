@@ -210,7 +210,7 @@ byte recvIdx;
 char c;
 
 //
-static const char * nmeaPackages[14] = {
+static const char * nmeaPackages[13] = {
   "$GNDTM",
   "$GNRMC",
   "$GNVTG",
@@ -244,8 +244,8 @@ void loop() {
       
     } else if(c == '\r' || c == '\n'){ // || c == '\r\n'
       recvBuffer[recvIdx++] = 0;
-      if(GPS_checksum_calc){
-
+      if(GPS_checksum_calc)
+      {
         //float data1=3.14159f;
         //rf95.send((uint8_t*)&data1, sizeof(data1));
         
@@ -261,41 +261,48 @@ void loop() {
         Serial.println(myString);      
       }
       continue;      
-    }else{
-      if (recvIdx < (GPS_BUFFERSIZE - 1)){
-        if(c == '*'){
+    }
+    else if(recvIdx == 6)
+    {
+
+      int len = (sizeof (nmeaPackages) / sizeof (*nmeaPackages)); // how many elements in array
+      int x; // generic loop counter
+      char buffer[128];
+      char* PauseStr;
+      PauseStr = (char*)recvBuffer;
+      
+      for (x = 0; x < len; x++)
+      {
+        sprintf (buffer, "Looking for %s (at index %d)...", (char*)recvBuffer, x);
+        //Serial.print (buffer);
+        
+        if (strcmp ((char*)recvBuffer, nmeaPackages[x]) == 0)
+        { // this is the key: a match returns 0
+          recvBuffer[recvIdx++] = c;
+          sprintf (buffer, "Found %s in array at index %d!\r\n", nmeaPackages[x], x);
+          //Serial.print (buffer);
+        }
+        else
+        {
+          recvIdx = 0;   // Lets throw this package away
+          nss.flush();
+          sprintf (buffer, "Fail. %s is not %s at index %d!\r\n", (char*)recvBuffer, nmeaPackages[x], x);
+          //Serial.print (buffer);
+        }
+      }
+    }
+    else
+    {
+      if (recvIdx < (GPS_BUFFERSIZE - 1))
+      {
+        if(c == '*')
+        {
           GPS_checksum_calc = true;
         }
-
-        // TODO: Search for NMEA package
-        int len = (sizeof(recvBuffer)/sizeof(char *)); //array size 
-        //int len = sizeof(recvBuffer);
-        Serial.println(String("Størrelse på buffer: ") + len);
-        
-        if(len == 6){ //c == ',' && 
-          
-          int len = (sizeof (nmeaPackages) / sizeof (*nmeaPackages)); // how many elements in array
-          int x; // generic loop counter
-          char buffer[128];
-          char* PauseStr;
-          PauseStr = (char*)recvBuffer;
-          
-          for (x = 0; x < len; x++) {
-            sprintf (buffer, "Looking for %s (at index %d)...", (char*)recvBuffer, x);
-            Serial.print (buffer);
-            if (strcmp ((char*)recvBuffer, nmeaPackages[x]) == 0) { // this is the key: a match returns 0
-              sprintf (buffer, "Found %s in array at index %d!\r\n", nmeaPackages[x], x);
-              Serial.print (buffer);
-            } else {
-              sprintf (buffer, "Fail. %s is not %s at index %d!\r\n", (char*)recvBuffer, nmeaPackages[x], x);
-              Serial.print (buffer);
-            }
-          }
-          Serial.println(String("Content of index: ") + recvIdx);
-          Serial.println(String("Content of buffer: ") + String((char *)recvBuffer));
-        }
         recvBuffer[recvIdx++] = c;
-      } else {
+      }
+      else
+      {
         recvIdx = 0;   // Buffer overflow : restart
         nss.flush();
         Serial.println("Buffer overflow!");
