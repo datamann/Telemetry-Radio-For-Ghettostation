@@ -34,7 +34,9 @@ void setup() {
  
   // Lower the baud rate to 9600 from 38.4k
   /*Serial.print("Setting uBlox port mode: ");
-  uint8_t setPort[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0xD0, 0x08, 0x00, 0x00, 0x80, 0x25, 0x00, 0x00, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9E, 0x95};
+  uint8_t setPort[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00,
+                       0xD0, 0x08, 0x00, 0x00, 0x80, 0x25, 0x00, 0x00, 0x03, 0x00,
+                       0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9E, 0x95};
   sendUBX(setPort, sizeof(setPort)/sizeof(uint8_t));*/
  
   // Switch baud rates on the software serial
@@ -42,36 +44,52 @@ void setup() {
   nss.begin(9600);
   delay(1000);*/  
 
-  //Turn on most used satellites
+  //Turn on most used satellites (GPS,Galileo,QZSS,Glonass)
   /*Serial.print("Turn on most used satellites: ");
-  uint8_t mostUsedSats[] =  {0x00, 0x00, 0x20, 0x07,                         // GNSS    / min / max / enable
-                             0x00, 0x08, 0x10, 0x00, 0x01, 0x00, 0x01, 0x01, // GPS     / 8 / 16 / Y
-                             0x01, 0x01, 0x03, 0x00, 0x01, 0x00, 0x01, 0x01, // SBAS    / 1 /  3 / Y
-                             0x02, 0x04, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, // Galileo / 4 /  8 / Y
-                             0x03, 0x08, 0x10, 0x00, 0x00, 0x00, 0x01, 0x01, // BeiDou  / 8 / 16 / N
-                             0x04, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x01, // IMES    / 0 /  8 / N
-                             0x05, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x01, // QZSS    / 0 /  3 / N
-                             0x06, 0x08, 0x0e, 0x00, 0x01, 0x00, 0x01, 0x01  // GLONASS / 8 / 14 / Y
+  uint8_t mostUsedSats[] =  {0xB5,0x62,0x06,0x3E,0x3C,0x00,0x00,0x00,0x20,0x07,
+                             0x00,0x08,0x10,0x00,0x01,0x00,0x01,0x01,
+                             0x01,0x01,0x03,0x00,0x00,0x00,0x01,0x01,
+                             0x02,0x04,0x08,0x00,0x01,0x00,0x01,0x01,
+                             0x03,0x08,0x10,0x00,0x00,0x00,0x01,0x01,
+                             0x04,0x00,0x08,0x00,0x00,0x00,0x01,0x01,
+                             0x05,0x00,0x03,0x00,0x01,0x00,0x01,0x01,
+                             0x06,0x08,0x0E,0x00,0x01,0x00,0x01,0x01,
+                             0x2F,0x81
                              };
   sendUBX(mostUsedSats, sizeof(mostUsedSats)/sizeof(uint8_t));
   getUBX_ACK(mostUsedSats);*/
 
   //Turn on GPS & QZSS
   /*Serial.print("Turn on GPS & QZSS: ");
-  uint8_t turnGPSOn[] = {0xB5,0x62,0x06,0x3E,0x3C,0x00,0x00, 
-                         0x00,0x20,0x07,0x00,0x08,0x10,0x00,0x01, //GPS
-                         0x00,0x01,0x01,0x01,0x01,0x03,0x00,0x00, //SBAS
-                         0x00,0x01,0x01,0x02,0x04,0x08,0x00,0x01, //Galileo
-                         0x00,0x01,0x01,0x03,0x08,0x10,0x00,0x00, //BeiDou
-                         0x00,0x01,0x01,0x04,0x00,0x08,0x00,0x00, //IMES
-                         0x00,0x01,0x01,0x05,0x00,0x03,0x00,0x01, //QZSS
-                         0x00,0x01,0x01,0x06,0x08,0x0E,0x00,0x01, //Glonass
-                         0x00,0x01,0x01//,0x32,0xDD
-                         };
+  uint8_t turnGPSOn[] = {};
   sendUBX(turnGPSOn, sizeof(turnGPSOn)/sizeof(uint8_t));
   getUBX_ACK(turnGPSOn);*/
 
-  Serial.println("Turn on GGA & RMC: ");
+  //Turn on Galileo
+  /*Serial.print("Turn on Galileo: ");
+  uint8_t turnGALOn[] = {};
+  sendUBX(turnGALOn, sizeof(turnGALOn)/sizeof(uint8_t));
+  getUBX_ACK(turnGALOn);*/
+
+  //Turn on most used satellites
+  /*Serial.print("Turn on most used satellites: ");
+  uint8_t mostUsedSats[] =  {};
+  sendUBX(mostUsedSats, sizeof(mostUsedSats)/sizeof(uint8_t));
+  getUBX_ACK(mostUsedSats);*/
+
+  //Turn on most used satellites
+  /*Serial.print("Turn on most used satellites: ");
+  uint8_t mostUsedSats[] =  {};
+  sendUBX(mostUsedSats, sizeof(mostUsedSats)/sizeof(uint8_t));
+  getUBX_ACK(mostUsedSats);*/
+
+  //Turn on most used satellites
+  /*Serial.print("Turn on most used satellites: ");
+  uint8_t mostUsedSats[] =  {};
+  sendUBX(mostUsedSats, sizeof(mostUsedSats)/sizeof(uint8_t));
+  getUBX_ACK(mostUsedSats);*/
+
+  //Serial.println("Turn on GGA & RMC: ");
   //char nmea[] = "$PMTK314,1,1,1,1,1,5,1,1,1,1,1,1,0,1,1,1,1,1,1*2C\r\n";
   //char nmea[] = "$PMTK314,-1*04\r\n";                                       // Restore system default
   //char nmea[] = "$PMTK251,38400*27\r\n";                                  // Set Baudrate to 38400
@@ -88,18 +106,23 @@ void setup() {
     Serial.println("NAV Failed!");    
   }*/
 
-  //Turn on Galileo
-  /*Serial.print("Turn on Galileo: ");
-  uint8_t turnGALOn[] = {0xB5,0x62,0x06,0x3E,0x3C,0x00,0x00,0x00,0x20,0x07,0x00,0x08,0x10,0x00,0x00,0x00,0x01,0x01,0x01,0x01,0x03,0x00,0x00,0x00,0x01,0x01,0x02,0x04,0x08,0x00,0x01,0x00,0x01,0x01,0x03,0x08,0x10,0x00,0x00,0x00,0x01,0x01,0x04,0x00,0x08,0x00,0x00,0x00,0x01,0x01,0x05,0x00,0x03,0x00,0x00,0x00,0x01,0x01,0x06,0x08,0x0E,0x00,0x00,0x00,0x01,0x01,0x2C,0x3D};
-  sendUBX(turnGALOn, sizeof(turnGALOn)/sizeof(uint8_t));
-  getUBX_ACK(turnGALOn);*/
+  //Revert to default configuration
+  /*Serial.print("Revert to default configuration: ");
+  uint8_t revertDefault[] = {0xB5,0x62,0x06,0x09,0x0D,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,0x03,0x1B,0x9A};
+  sendUBX(revertDefault, sizeof(revertDefault)/sizeof(uint8_t));
+  getUBX_ACK(revertDefault);*/
+ 
+  
  
   // Set the navigation mode (Airborne, 1G)
   /*Serial.print("Setting uBlox nav mode: ");
-  uint8_t setNav[] = {0xB5, 0x62, 0x06, 0x24, 0x24, 0x00, 0xFF, 0xFF, 0x06, 0x03, 0x00, 0x00, 0x00, 0x00, 0x10, 0x27, 0x00, 0x00, 0x05, 0x00, 0xFA, 0x00, 0xFA, 0x00, 0x64, 0x00, 0x2C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0xDC};
+  uint8_t setNav[] = {0xB5,0x62,0x06,0x24,0x24,0x00,0xFF,0xFF,0x06,0x03,0x00,0x00,0x00,
+                      0x00,0x10,0x27,0x00,0x00,0x05,0x00,0xFA,0x00,0xFA,0x00,0x64,0x00,
+                      0x2C,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+                      0x00,0x00,0x00,0x16,0xDC
+                      };
   sendUBX(setNav, sizeof(setNav)/sizeof(uint8_t));
-  getUBX_ACK(setNav);*/
- 
+  getUBX_ACK(setNav);*/ 
  
   // Switch off GLL
   /*Serial.print("Switching off NMEA GLL: ");
@@ -150,7 +173,7 @@ void setup() {
   getUBX_ACK(setALLOff);*/
 
   // Enable NMEAs
-  Serial.print("Switching on all NMEA packets: ");
+  /*Serial.print("Switching on all NMEA packets: ");
   uint8_t setALLOn[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10, //(GxGGA)
                         0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x01,0x01,0xFC,0x12, //(GxGLL)
                         0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x02,0x01,0xFD,0x14, //(GxGSA)
@@ -171,8 +194,8 @@ void setup() {
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF1,0x05,0x01,0x01,0x1D, //(PUBX-05) Failed on Beitian BN-880
                         //0xB5,0x62,0x06,0x01,0x03,0x00,0xF1,0x06,0x01,0x02,0x1F  //(PUBX-06) Failed on Beitian BN-880
                         };
-  sendUBX(setALLOn, sizeof(setALLOn)/sizeof(uint8_t));
-  getUBX_ACK(setALLOn);
+  sendUBX ( setALLOn, sizeof(setALLOn)/sizeof(uint8_t) );
+  getUBX_ACK ( setALLOn );*/
 
   // Disable UBX
   //Serial.print("Switching off UBX: ");
@@ -194,12 +217,12 @@ void setup() {
   //getUBX_ACK(setUBXOn);
 
   // RATE
-  Serial.print("Set data rate: ");
+  /*Serial.print("Set data rate: ");
   //uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0x64,0x00,0x01,0x00,0x01,0x00,0x7A,0x12}; //(10Hz)
   //uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0xC8,0x00,0x01,0x00,0x01,0x00,0xDE,0x6A};  //(5Hz)
   uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0xE8,0x03,0x01,0x00,0x01,0x00,0x01,0x39}; //(1Hz)
   sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
-  getUBX_ACK(setRate);
+  getUBX_ACK(setRate);*/
 
 }
 
@@ -235,16 +258,47 @@ void loop() {
   static unsigned long lastSendTime = 0;
   unsigned long now = millis();
   
-  while(nss.available() > 0 && now - lastSendTime > 1000){
+  while ( nss.available() > 0 && now - lastSendTime > 1000 )
+  {
     c = nss.read();
-    if (c == '$'){
+    if ( c == '$' )
+    {
       GPS_checksum_calc = false;
       recvIdx = 0;
       recvBuffer[recvIdx++] = c;
+    }
+    /*else if ( recvIdx == 6 )
+    {
+      int len = ( sizeof (nmeaPackages) / sizeof (*nmeaPackages) ); // how many elements in array
+      int x; // generic loop counter
+      char buffer[128];
+      char* PauseStr;
+      PauseStr = (char*)recvBuffer;
       
-    } else if(c == '\r' || c == '\n'){ // || c == '\r\n'
+      for ( x = 0; x < len; x++ )
+      {
+        sprintf ( buffer, "Looking for %s (at index %d)...", (char*)recvBuffer, x );
+        //Serial.print (buffer);
+        
+        if ( strcmp ((char*)recvBuffer, nmeaPackages[x]) == 0 )
+        { // this is the key: a match returns 0
+          recvBuffer[recvIdx++] = c;
+          sprintf ( buffer, "Found %s in array at index %d!\r\n", nmeaPackages[x], x );
+          //Serial.print (buffer);
+        }
+        else
+        {
+          recvIdx = 0;   // Lets throw this package away
+          nss.flush();
+          sprintf ( buffer, "Fail. %s is not %s at index %d!\r\n", (char*)recvBuffer, nmeaPackages[x], x );
+          //Serial.print (buffer);
+        }
+      }
+    }*/
+    else if ( c == '\r' || c == '\n' )            // || c == '\r\n'
+    {
       recvBuffer[recvIdx++] = 0;
-      if(GPS_checksum_calc)
+      if ( GPS_checksum_calc )
       {
         //float data1=3.14159f;
         //rf95.send((uint8_t*)&data1, sizeof(data1));
@@ -256,46 +310,16 @@ void loop() {
         /*rf95.send((uint8_t *)&recvBuffer, sizeof(recvBuffer));
         rf95.waitPacketSent();*/
         lastSendTime = now;
-        
         String myString = String((char *)recvBuffer);
         Serial.println(myString);      
       }
-      continue;      
-    }
-    else if(recvIdx == 6)
-    {
-
-      int len = (sizeof (nmeaPackages) / sizeof (*nmeaPackages)); // how many elements in array
-      int x; // generic loop counter
-      char buffer[128];
-      char* PauseStr;
-      PauseStr = (char*)recvBuffer;
-      
-      for (x = 0; x < len; x++)
-      {
-        sprintf (buffer, "Looking for %s (at index %d)...", (char*)recvBuffer, x);
-        //Serial.print (buffer);
-        
-        if (strcmp ((char*)recvBuffer, nmeaPackages[x]) == 0)
-        { // this is the key: a match returns 0
-          recvBuffer[recvIdx++] = c;
-          sprintf (buffer, "Found %s in array at index %d!\r\n", nmeaPackages[x], x);
-          //Serial.print (buffer);
-        }
-        else
-        {
-          recvIdx = 0;   // Lets throw this package away
-          nss.flush();
-          sprintf (buffer, "Fail. %s is not %s at index %d!\r\n", (char*)recvBuffer, nmeaPackages[x], x);
-          //Serial.print (buffer);
-        }
-      }
+      continue;
     }
     else
     {
-      if (recvIdx < (GPS_BUFFERSIZE - 1))
+      if ( recvIdx < (GPS_BUFFERSIZE - 1) )
       {
-        if(c == '*')
+        if ( c == '*' )
         {
           GPS_checksum_calc = true;
         }
@@ -312,8 +336,10 @@ void loop() {
 }
  
 // Send a byte array of UBX protocol to the GPS
-void sendUBX(uint8_t *MSG, uint8_t len) {
-  for(int i=0; i<len; i++) {
+void sendUBX ( uint8_t *MSG, uint8_t len )
+{
+  for ( int i=0; i<len; i++ )
+  {
     nss.write(MSG[i]);
     Serial.print(MSG[i], HEX);
   }
@@ -321,28 +347,30 @@ void sendUBX(uint8_t *MSG, uint8_t len) {
 }
 
 // Send a byte array of NMEA protocol to the GPS
-void sendNMEA(char s[]) {
+void sendNMEA ( char s[] )
+{
   //char s[]= { "$PAMTC,EN,HDG,1,10*HH\r\n" } ;
   
-  int cpos=1 ;
-  uint8_t cs=0 ;
+  int cpos = 1 ;
+  uint8_t cs = 0 ;
   
-  while (true)
+  while ( true )
   {
-      cs = cs^s[cpos] ;
-      cpos++ ;
+      cs = cs^s[cpos];
+      cpos++;
       if ( s[cpos] == '*' )
       {
-           char css[3] ;
-           sprintf( css,"%02X", cs);
-           s[cpos+1] = css[0] ;
-           s[cpos+2] = css[1] ;
-           break ;
+           char css[3];
+           sprintf ( css,"%02X", cs);
+           s[cpos+1] = css[0];
+           s[cpos+2] = css[1];
+           break;
       }
   }
-    Serial.println(nss.print(s));
+    Serial.println( nss.print(s) );
     
-    while(nss.available()){
+    while ( nss.available() )
+    {
       char c = nss.read();
       Serial.print(c);
     }
@@ -350,7 +378,8 @@ void sendNMEA(char s[]) {
 }
  
 // Calculate expected UBX ACK packet and parse UBX response from GPS
-boolean getUBX_ACK(uint8_t *MSG) {
+boolean getUBX_ACK ( uint8_t *MSG )
+{
   uint8_t b;
   uint8_t ackByteID = 0;
   uint8_t ackPacket[10];
@@ -370,35 +399,42 @@ boolean getUBX_ACK(uint8_t *MSG) {
   ackPacket[9] = 0;   // CK_B
  
   // Calculate the checksums
-  for (uint8_t i=2; i<8; i++) {
+  for ( uint8_t i=2; i<8; i++ )
+  {
     ackPacket[8] = ackPacket[8] + ackPacket[i];
     ackPacket[9] = ackPacket[9] + ackPacket[8];
   }
  
-  while (1) {
- 
+  while ( 1 )
+  { 
     // Test for success
-    if (ackByteID > 9) {
+    if ( ackByteID > 9 )
+    {
         // All packets in order!
         Serial.println(" (SUCCESS!)");
         return true;
     }
  
     // Timeout if no valid response in 3 seconds
-    if (millis() - startTime > 3000) { 
+    if ( millis() - startTime > 3000 )
+    { 
       Serial.println(" (FAILED!)");
       return false;
     }
  
     // Make sure data is available to read
-    if (nss.available()) {
+    if ( nss.available() )
+    {
       b = nss.read();
  
       // Check that bytes arrive in sequence as per expected ACK packet
-      if (b == ackPacket[ackByteID]) { 
+      if ( b == ackPacket[ackByteID] )
+      { 
         ackByteID++;
         Serial.print(b, HEX);
-      } else {
+      }
+      else
+      {
         ackByteID = 0;  // Reset and look again, invalid order
       }
     }
