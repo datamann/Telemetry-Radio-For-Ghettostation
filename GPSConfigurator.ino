@@ -12,14 +12,39 @@
 
 // Activating factory default GPS configuration
 //#define SET_FACTORY_DEFAULT
+boolean USE_DEFAULT_BAUDRATE = true; // Configure GPS to 9600b.
 
-// Only activate one!
+typedef struct baudRateHelper {
+   String txt;
+   uint8_t* arr;
+};
+//baudRateHelper brh;
+
+// Only activate one satellite system!
 #define USE_DEFAULT     // GPS,Galileo,QZSS,Glonass
 //#define USE_GPS_QZSS  // Only GPS & QZSS. By UBLOX NMEA documentation, It's recomended to both.
 //#define USE_GALILEO   // Only Galileo
 //#define USE_GLONASS   // Only Glonass
 //#define USE_BEIDOU    // Only BeiDou
 //#define USE_ALL       // GPS,SBAS,Galileo,IMES,QZSS,Glonass
+
+
+//static const uint32_t BAUDRATE = 4800;
+static const uint32_t BAUDRATE = 9600;
+//static const uint32_t BAUDRATE = 19200;
+//static const uint32_t BAUDRATE = 38400;
+//static const uint32_t BAUDRATE = 57600;
+//static const uint32_t BAUDRATE = 115200;
+
+
+// Configure baud rate. Activate only one!
+//#define BAUD_4800;
+#define BAUD_9600;
+//#define BAUD_19200;
+//#define BAUD_38400;
+//#define BAUD_57600;
+//#define BAUD_115200;
+
 #include "gps.h"
 #include "nmea.h"
 #include "ublox.h"
@@ -28,34 +53,43 @@
 
 RH_RF95 rf95;
 static const int RXPin = 3, TXPin = 4;
-static const uint32_t GPSBaud = 9600;
+static const uint32_t GPSBaud = BAUDRATE;
+static const uint32_t SerialBaud = 38400;
 SoftwareSerial nss(RXPin, TXPin);
 byte navmode = 99;
+boolean BAUDRATE_OK;
  
 void setup() {
  
   // Start up serial ports
   nss.begin(GPSBaud);
-  Serial.begin(19200); // used for debug ouput
+  Serial.begin(SerialBaud); // used for debug ouput
   delay(2000); // Give the GPS time to come boot
 
-  // Switch baud rates on the software serial
-  /*Serial.println("Switching to 9600b GPS serial");
-  nss.begin(9600);
-  delay(1000);*/  
-
-  Serial.println(HEADER1 + "-" + HEADER2);
-
   #ifdef SET_FACTORY_DEFAULT
-     Serial.print(txtToDisplayFD);
+    Serial.print(txtToDisplayFD);
     sendUBX(revertDefault, sizeof(revertDefault)/sizeof(uint8_t));
-    getUBX_ACK(revertDefault);  
-  #endif 
+    getUBX_ACK(revertDefault);
+    USE_DEFAULT_BAUDRATE = false;
+  #endif
+
+  if (USE_DEFAULT_BAUDRATE){
+    baudRateHelper dfbr = setDeafultBaudRate();
+    Serial.print(dfbr.txt);
+    sendUBX(dfbr.arr, sizeof(dfbr.arr)/sizeof(uint8_t));
+    getUBX_ACK(dfbr.arr);
+  }
 
   //Turn on satellites
+  Serial.println();
   Serial.print(txtToDisplay);
   sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
   getUBX_ACK(activateSats);
+
+  while ( !BAUDRATE_OK )
+  {
+    autoBaud();
+  }
 }
 
 void loop() {
@@ -66,9 +100,42 @@ void loop() {
   while(nss.available() > 0) // && now - lastSendTime > 500)
   {
     char c = nss.read();
-    Serial.print(c);
+    Serial.print(c);   
     //lastSendTime = now; 
   }
+}
+
+void autoBaud()
+{
+  long int baudRate[6] = { 4800,9600,19200,38400,57600,115200 };
+  while ( !BAUDRATE_OK )
+  {
+    for ( int i=0; i<6; i++ )
+    {
+      // Switch baud rates on the software serial
+      Serial.println(String("Switching to ") + baudRate[i] + String(" GPS serial"));
+      nss.begin(baudRate[i]);
+      delay(1000);
+
+      // Used for testing GPS configuration changes. If successfull we have the correct baud settings.
+      uint8_t test[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10};
+      sendUBX(test, sizeof(test)/sizeof(uint8_t));
+      getUBX_ACK(test);
+      
+      if ( BAUDRATE_OK ){
+        #ifdef USE_DEFAULT_BAUDRATE
+          uint8_t baudRate = setBaudRate(BAUDRATE);
+          sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
+          getUBX_ACK(baudRate);
+          continue;
+        #endif
+        
+        /*if(USE_DEFAULT_BAUDRATE){
+        }*/
+        break;
+      }
+    }
+  }  
 }
  
 // Send a byte array of UBX protocol to the GPS
@@ -148,6 +215,7 @@ boolean getUBX_ACK ( uint8_t *MSG )
     {
         // All packets in order!
         Serial.println(" (SUCCESS!)");
+        BAUDRATE_OK = true;
         return true;
     }
  
@@ -155,6 +223,7 @@ boolean getUBX_ACK ( uint8_t *MSG )
     if ( millis() - startTime > 3000 )
     { 
       Serial.println(" (FAILED!)");
+      BAUDRATE_OK = false;
       return false;
     }
  
