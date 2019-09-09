@@ -9,16 +9,14 @@
 #include <SPI.h>
 #include <RH_RF95.h>
 #include "LoRa.h"
+RH_RF95 rf95;
 
-// Activating factory default GPS configuration
-//#define SET_FACTORY_DEFAULT
-boolean USE_DEFAULT_BAUDRATE = true; // Configure GPS to 9600b.
+//#define SET_FACTORY_DEFAULT         // Activating factory default GPS configuration
 
 typedef struct baudRateHelper {
    String txt;
    uint8_t* arr;
 };
-//baudRateHelper brh;
 
 // Only activate one satellite system!
 #define USE_DEFAULT     // GPS,Galileo,QZSS,Glonass
@@ -28,36 +26,26 @@ typedef struct baudRateHelper {
 //#define USE_BEIDOU    // Only BeiDou
 //#define USE_ALL       // GPS,SBAS,Galileo,IMES,QZSS,Glonass
 
+boolean USE_DEFAULT_BAUDRATE = true;  // Configure GPS to 9600b.
+boolean BAUDRATE_OK;
 
 //static const uint32_t BAUDRATE = 4800;
-static const uint32_t BAUDRATE = 9600;
-//static const uint32_t BAUDRATE = 19200;
+//static const uint32_t BAUDRATE = 9600;
+static const uint32_t BAUDRATE = 19200;
 //static const uint32_t BAUDRATE = 38400;
 //static const uint32_t BAUDRATE = 57600;
 //static const uint32_t BAUDRATE = 115200;
 
-
-// Configure baud rate. Activate only one!
-//#define BAUD_4800;
-#define BAUD_9600;
-//#define BAUD_19200;
-//#define BAUD_38400;
-//#define BAUD_57600;
-//#define BAUD_115200;
+static const int RXPin = 3, TXPin = 4;      // Used when RX/TX are not used.
+static const uint32_t GPSBaud = BAUDRATE;
+static const uint32_t SerialBaud = 38400;
+SoftwareSerial nss(RXPin, TXPin);
 
 #include "gps.h"
 #include "nmea.h"
 #include "ublox.h"
 #include "gpsStartup.h"
 #include "code.h"
-
-RH_RF95 rf95;
-static const int RXPin = 3, TXPin = 4;
-static const uint32_t GPSBaud = BAUDRATE;
-static const uint32_t SerialBaud = 38400;
-SoftwareSerial nss(RXPin, TXPin);
-byte navmode = 99;
-boolean BAUDRATE_OK;
  
 void setup() {
  
@@ -73,23 +61,8 @@ void setup() {
     USE_DEFAULT_BAUDRATE = false;
   #endif
 
-  if (USE_DEFAULT_BAUDRATE){
-    baudRateHelper dfbr = setDeafultBaudRate();
-    Serial.print(dfbr.txt);
-    sendUBX(dfbr.arr, sizeof(dfbr.arr)/sizeof(uint8_t));
-    getUBX_ACK(dfbr.arr);
-  }
-
-  //Turn on satellites
-  Serial.println();
-  Serial.print(txtToDisplay);
-  sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
-  getUBX_ACK(activateSats);
-
-  while ( !BAUDRATE_OK )
-  {
-    autoBaud();
-  }
+  // Check conn
+  checkConnectivity();
 }
 
 void loop() {
@@ -97,10 +70,24 @@ void loop() {
   static unsigned long lastSendTime = 0;
   unsigned long now = millis();
   
-  while(nss.available() > 0) // && now - lastSendTime > 500)
+  while ( nss.available() > 0 ) // && now - lastSendTime > 500)
   {
     char c = nss.read();
-    Serial.print(c);   
+    Serial.print(c);
+
+    if ( USE_DEFAULT_BAUDRATE )
+    {
+      uint8_t baudRate = setBaudRate(9600);
+      sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
+      getUBX_ACK(baudRate);
+      
+      checkConnectivity();
+      
+      if ( !BAUDRATE_OK )
+      {
+        autoBaud();
+      }
+    }
     //lastSendTime = now; 
   }
 }
@@ -123,15 +110,6 @@ void autoBaud()
       getUBX_ACK(test);
       
       if ( BAUDRATE_OK ){
-        #ifdef USE_DEFAULT_BAUDRATE
-          uint8_t baudRate = setBaudRate(BAUDRATE);
-          sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
-          getUBX_ACK(baudRate);
-          continue;
-        #endif
-        
-        /*if(USE_DEFAULT_BAUDRATE){
-        }*/
         break;
       }
     }
@@ -243,5 +221,19 @@ boolean getUBX_ACK ( uint8_t *MSG )
         ackByteID = 0;  // Reset and look again, invalid order
       }
     }
+  }
+}
+
+void checkConnectivity()
+{
+  //Turn on satellites
+  Serial.println();
+  Serial.print(txtToDisplay);
+  sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
+  getUBX_ACK(activateSats);
+  
+  while ( !BAUDRATE_OK )
+  {
+    autoBaud();
   }
 }
