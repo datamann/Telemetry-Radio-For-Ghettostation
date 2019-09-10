@@ -11,12 +11,12 @@
 #include "LoRa.h"
 RH_RF95 rf95;
 
-//#define SET_FACTORY_DEFAULT         // Activating factory default GPS configuration
-
 typedef struct baudRateHelper {
    String txt;
    uint8_t* arr;
 };
+
+#define SET_FACTORY_DEFAULT         // Activating factory default GPS configuration
 
 // Only activate one satellite system!
 #define USE_DEFAULT     // GPS,Galileo,QZSS,Glonass
@@ -26,19 +26,23 @@ typedef struct baudRateHelper {
 //#define USE_BEIDOU    // Only BeiDou
 //#define USE_ALL       // GPS,SBAS,Galileo,IMES,QZSS,Glonass
 
-boolean USE_DEFAULT_BAUDRATE = true;  // Configure GPS to 9600b.
+#define DATARATE_1_HZ
+//#define DATARATE_5_HZ
+//#define DATARATE_10_HZ
+
+boolean USE_DEFAULT_BAUDRATE = false;  // Configure GPS to higher baudrate.
 boolean BAUDRATE_OK;
 
 //static const uint32_t BAUDRATE = 4800;
-//static const uint32_t BAUDRATE = 9600;
-static const uint32_t BAUDRATE = 19200;
+static const uint32_t BAUDRATE = 9600;
+//static const uint32_t BAUDRATE = 19200;
 //static const uint32_t BAUDRATE = 38400;
 //static const uint32_t BAUDRATE = 57600;
 //static const uint32_t BAUDRATE = 115200;
 
 static const int RXPin = 3, TXPin = 4;      // Used when RX/TX are not used.
 static const uint32_t GPSBaud = BAUDRATE;
-static const uint32_t SerialBaud = 38400;
+static const uint32_t SerialBaud = 19200;
 SoftwareSerial nss(RXPin, TXPin);
 
 #include "gps.h"
@@ -54,15 +58,38 @@ void setup() {
   Serial.begin(SerialBaud); // used for debug ouput
   delay(2000); // Give the GPS time to come boot
 
-  #ifdef SET_FACTORY_DEFAULT
-    Serial.print(txtToDisplayFD);
-    sendUBX(revertDefault, sizeof(revertDefault)/sizeof(uint8_t));
-    getUBX_ACK(revertDefault);
-    USE_DEFAULT_BAUDRATE = false;
-  #endif
-
-  // Check conn
   checkConnectivity();
+
+  if ( BAUDRATE_OK )
+  {
+    #ifdef SET_FACTORY_DEFAULT
+      Serial.print(txtToDisplayFD);
+      sendUBX(revertDefault, sizeof(revertDefault)/sizeof(uint8_t));
+      getUBX_ACK(revertDefault);
+      USE_DEFAULT_BAUDRATE = false;
+    #endif
+
+    if ( USE_DEFAULT_BAUDRATE ) //&& BAUDRATE != 9600
+    {
+      Serial.print("Trying to configure new baud setting...");
+      uint8_t baudRate = setBaudRate(BAUDRATE);
+      sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
+      getUBX_ACK(baudRate);
+
+      if ( !BAUDRATE_OK )
+      {
+        checkConnectivity(); 
+      }
+      else
+      {
+        Serial.print(String("GPS is now configured to use baud setting: ") + BAUDRATE);
+      }
+    }
+
+    Serial.print(txtToDisplay);
+    sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
+    getUBX_ACK(activateSats);
+  }    
 }
 
 void loop() {
@@ -75,20 +102,26 @@ void loop() {
     char c = nss.read();
     Serial.print(c);
 
-    if ( USE_DEFAULT_BAUDRATE )
-    {
-      uint8_t baudRate = setBaudRate(9600);
-      sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
-      getUBX_ACK(baudRate);
-      
-      checkConnectivity();
-      
-      if ( !BAUDRATE_OK )
-      {
-        autoBaud();
-      }
-    }
     //lastSendTime = now; 
+  }
+}
+
+void checkConnectivity()
+{
+  Serial.println();
+  Serial.print("Checking connectivity...");
+  Serial.println();
+  uint8_t test[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10};
+  sendUBX(test, sizeof(test)/sizeof(uint8_t));
+  getUBX_ACK(test);
+  
+  while ( !BAUDRATE_OK )
+  {
+    autoBaud();
+    
+    if ( BAUDRATE_OK ){
+      break;
+    }
   }
 }
 
@@ -100,7 +133,7 @@ void autoBaud()
     for ( int i=0; i<6; i++ )
     {
       // Switch baud rates on the software serial
-      Serial.println(String("Switching to ") + baudRate[i] + String(" GPS serial"));
+      Serial.println(String("Switching to ") + baudRate[i] + String(" for GPS port."));
       nss.begin(baudRate[i]);
       delay(1000);
 
@@ -113,7 +146,7 @@ void autoBaud()
         break;
       }
     }
-  }  
+  }
 }
  
 // Send a byte array of UBX protocol to the GPS
@@ -122,40 +155,9 @@ void sendUBX ( uint8_t *MSG, uint8_t len )
   for ( int i=0; i<len; i++ )
   {
     nss.write(MSG[i]);
-    Serial.print(MSG[i], HEX);
+    //Serial.print(MSG[i], HEX);
   }
   Serial.println();
-}
-
-// Send a byte array of NMEA protocol to the GPS
-void sendNMEA ( char s[] )
-{
-  //char s[]= { "$PAMTC,EN,HDG,1,10*HH\r\n" } ;
-  
-  int cpos = 1 ;
-  uint8_t cs = 0 ;
-  
-  while ( true )
-  {
-      cs = cs^s[cpos];
-      cpos++;
-      if ( s[cpos] == '*' )
-      {
-           char css[3];
-           sprintf ( css,"%02X", cs);
-           s[cpos+1] = css[0];
-           s[cpos+2] = css[1];
-           break;
-      }
-  }
-    Serial.println( nss.print(s) );
-    
-    while ( nss.available() )
-    {
-      char c = nss.read();
-      Serial.print(c);
-    }
-    Serial.println();
 }
  
 // Calculate expected UBX ACK packet and parse UBX response from GPS
@@ -214,7 +216,7 @@ boolean getUBX_ACK ( uint8_t *MSG )
       if ( b == ackPacket[ackByteID] )
       { 
         ackByteID++;
-        Serial.print(b, HEX);
+        //Serial.print(b, HEX);
       }
       else
       {
@@ -224,16 +226,33 @@ boolean getUBX_ACK ( uint8_t *MSG )
   }
 }
 
-void checkConnectivity()
+// Send a byte array of NMEA protocol to the GPS
+void sendNMEA ( char s[] )
 {
-  //Turn on satellites
-  Serial.println();
-  Serial.print(txtToDisplay);
-  sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
-  getUBX_ACK(activateSats);
+  //char s[]= { "$PAMTC,EN,HDG,1,10*HH\r\n" } ;
   
-  while ( !BAUDRATE_OK )
+  int cpos = 1 ;
+  uint8_t cs = 0 ;
+  
+  while ( true )
   {
-    autoBaud();
+      cs = cs^s[cpos];
+      cpos++;
+      if ( s[cpos] == '*' )
+      {
+           char css[3];
+           sprintf ( css,"%02X", cs);
+           s[cpos+1] = css[0];
+           s[cpos+2] = css[1];
+           break;
+      }
   }
+    Serial.println( nss.print(s) );
+    
+    while ( nss.available() )
+    {
+      char c = nss.read();
+      Serial.print(c);
+    }
+    Serial.println();
 }
