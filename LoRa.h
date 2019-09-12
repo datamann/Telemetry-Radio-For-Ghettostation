@@ -1,3 +1,11 @@
+/*
+ * Written by Stig B. Sivertsen
+ * sbsivertsen@gmail.com
+ * https://github.com/datamann/GPSConfigurator
+ * 11.09.2019
+ * @see The GNU Public License (GPL) Version 3
+*/
+
  // LoRa Setup
 /* while (!Serial) ; // Wait for serial port to be available
     if (!rf95.init())

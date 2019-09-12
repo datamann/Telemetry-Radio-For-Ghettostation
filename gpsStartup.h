@@ -1,9 +1,10 @@
-// Lower the baud rate to 9600 from 38.4k
-  /*Serial.print("Setting uBlox port mode: ");
-  uint8_t setPort[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00,
-                       0xD0, 0x08, 0x00, 0x00, 0x80, 0x25, 0x00, 0x00, 0x03, 0x00,
-                       0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9E, 0x95};
-  sendUBX(setPort, sizeof(setPort)/sizeof(uint8_t));*/
+/*
+ * Written by Stig B. Sivertsen
+ * sbsivertsen@gmail.com
+ * https://github.com/datamann/GPSConfigurator
+ * 11.09.2019
+ * @see The GNU Public License (GPL) Version 3
+*/
 
 uint8_t setBaudRate(uint32_t BAUDRATE)
 {
@@ -66,6 +67,11 @@ uint8_t setBaudRate(uint32_t BAUDRATE)
           }
   }
 }
+
+typedef struct baudRateHelper {
+   String txt;
+   uint8_t* arr;
+};
 
 static baudRateHelper setDeafultBaudRate(){
   baudRateHelper defaultBaudRate;

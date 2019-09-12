@@ -2,38 +2,26 @@
  * Written by Stig B. Sivertsen
  * sbsivertsen@gmail.com
  * https://github.com/datamann/GPSConfigurator
- * 06.09.2019
+ * 11.09.2019
+ * @see The GNU Public License (GPL) Version 3
 */
 
-/*static const uint8_t default_payload[] = {
-    0xFF, 0xFF, 0x03, 0x03, 0x00,           // CFG-NAV5 - Set engine settings (original MWII code)
-    0x00, 0x00, 0x00, 0x10, 0x27, 0x00, 0x00, 0x05, 0x00, 0xFA, 0x00,           // Collected by resetting a GPS unit to defaults. Changing mode to Pedistrian and
-    0xFA, 0x00, 0x64, 0x00, 0x2C, 0x01, 0x00, 0x3C, 0x00, 0x00, 0x00,           // capturing the data from the U-Center binary console.
-    0x00, 0xC8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};*/
-
 #ifdef DATARATE_1_HZ
-  // RATE
-  /*Serial.print("Set data rate: ");
+  // Set Datarate to 1HZ
+  String txtToDisplayDR = "Setting datarate to 1HZ...";
   uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0xE8,0x03,0x01,0x00,0x01,0x00,0x01,0x39}; //(1Hz)
-  sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
-  getUBX_ACK(setRate);*/
 #endif
 
 #ifdef DATARATE_5_HZ
-  // RATE
-  /*Serial.print("Set data rate: ");
-  //uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0xC8,0x00,0x01,0x00,0x01,0x00,0xDE,0x6A};  //(5Hz)
-  sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
-  getUBX_ACK(setRate);*/
+  // Set Datarate to 5HZ
+  String txtToDisplayDR = "Setting datarate to 5HZ...";
+  uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0xC8,0x00,0x01,0x00,0x01,0x00,0xDE,0x6A};  //(5Hz)
 #endif
 
 #ifdef DATARATE_10_HZ
-  // RATE
-  /*Serial.print("Set data rate: ");
-  //uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0x64,0x00,0x01,0x00,0x01,0x00,0x7A,0x12}; //(10Hz)
-  sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
-  getUBX_ACK(setRate);*/
+  // Set Datarate to 5HZ
+  String txtToDisplayDR = "Setting datarate to 10HZ...";
+  uint8_t setRate[] = {0xB5,0x62,0x06,0x08,0x06,0x00,0x64,0x00,0x01,0x00,0x01,0x00,0x7A,0x12}; //(10Hz)
 #endif
 
 // Revert to default configuration
@@ -126,3 +114,121 @@ uint8_t activateSats[] = {0xB5,0x62,0x06,0x3E,0x3C,0x00,0x00,0x00,0x20,0x07,
                           0x31,0xC1
                           };
 #endif
+
+// Send a byte array of UBX protocol to the GPS
+void sendUBX ( uint8_t *MSG, uint8_t len )
+{
+  for ( int i=0; i<len; i++ )
+  {
+    nss.write(MSG[i]);
+  }
+}
+
+// Calculate expected UBX ACK packet and parse UBX response from GPS
+boolean getUBX_ACK ( uint8_t *MSG )
+{
+  uint8_t b;
+  uint8_t ackByteID = 0;
+  uint8_t ackPacket[10];
+  unsigned long startTime = millis();
+  Serial.print(" * Reading ACK response: ");
+ 
+  // Construct the expected ACK packet    
+  ackPacket[0] = 0xB5;    // header
+  ackPacket[1] = 0x62;    // header
+  ackPacket[2] = 0x05;    // class
+  ackPacket[3] = 0x01;    // id
+  ackPacket[4] = 0x02;    // length
+  ackPacket[5] = 0x00;
+  ackPacket[6] = MSG[2];  // ACK class
+  ackPacket[7] = MSG[3];  // ACK id
+  ackPacket[8] = 0;       // CK_A
+  ackPacket[9] = 0;       // CK_B
+ 
+  // Calculate the checksums
+  for ( uint8_t i=2; i<8; i++ )
+  {
+    ackPacket[8] = ackPacket[8] + ackPacket[i];
+    ackPacket[9] = ackPacket[9] + ackPacket[8];
+  }
+ 
+  while ( 1 )
+  { 
+    // Test for success
+    if ( ackByteID > 9 )
+    {
+        // All packets in order!
+        Serial.println(" (SUCCESS!)");
+        BAUDRATE_OK = true;
+        return true;
+    }
+ 
+    // Timeout if no valid response in 3 seconds
+    if ( millis() - startTime > 3000 )
+    { 
+      Serial.println(" (FAILED!)");
+      BAUDRATE_OK = false;
+      return false;
+    }
+ 
+    // Make sure data is available to read
+    if ( nss.available() )
+    {
+      b = nss.read();
+ 
+      // Check that bytes arrive in sequence as per expected ACK packet
+      if ( b == ackPacket[ackByteID] )
+      { 
+        ackByteID++;
+        //Serial.print(b, HEX);
+      }
+      else
+      {
+        ackByteID = 0;  // Reset and look again, invalid order
+      }
+    }
+  }
+}
+
+void autoBaud()
+{
+  long int baudRate[6] = { 4800,9600,19200,38400,57600,115200 };
+  while ( !BAUDRATE_OK )
+  {
+    for ( int i=0; i<6; i++ )
+    {
+      // Switch baud rates on the software serial
+      Serial.println(String("Switching to ") + baudRate[i] + String(" for GPS port."));
+      nss.begin(baudRate[i]);
+      delay(2000);
+
+      // Used for testing GPS configuration changes. If successfull we have the correct baud settings.
+      uint8_t test[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10};
+      sendUBX(test, sizeof(test)/sizeof(uint8_t));
+      getUBX_ACK(test);
+      
+      if ( BAUDRATE_OK ){
+        break;
+      }
+    }
+  }
+}
+
+void checkConnectivity()
+{
+  Serial.println();
+  Serial.print("Checking connectivity...");
+  Serial.println();
+  uint8_t test[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10};
+  sendUBX(test, sizeof(test)/sizeof(uint8_t));
+  getUBX_ACK(test);
+  
+  while ( !BAUDRATE_OK )
+  {
+    autoBaud();
+    
+    if ( BAUDRATE_OK ){
+      break;
+    }
+  }
+}
