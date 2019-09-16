@@ -9,10 +9,17 @@
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <RH_RF95.h>
-#include "LoRa.h"
 RH_RF95 rf95;
 
-/*#############################################- DEFINES - READ CAREFULLY -######################################################*/
+/*#############################################- LoRA DEFINES - READ CAREFULLY -######################################################*/
+static const uint32_t FREQ = 433.00;
+//static const uint32_t FREQ = 868.00;
+static const uint32_t MODEMCONFIG = "RH_RF95::Bw31_25Cr48Sf512";
+//static const uint32_t MODEMCONFIG = "RH_RF95::Bw125Cr48Sf4096";
+static const uint32_t RFPOWER = 13;
+/*###############################################################################################################################*/
+
+/*#############################################- GPS DEFINES - READ CAREFULLY -######################################################*/
 // Activating factory default GPS configuration
 //#define SET_FACTORY_DEFAULT
 
@@ -36,7 +43,7 @@ RH_RF95 rf95;
 //#define DATARATE_5_HZ   // May be unstable on Beitian BN-880. If connectivity is lost, power off the GPS and wait for a few minutes.
 //#define DATARATE_10_HZ  // May be unstable on Beitian BN-880. If connectivity is lost, power off the GPS and wait for a few minutes.
 
-// Configure GPS to higher baudrate.
+// Configure GPS baudrate.
 boolean USE_DEFAULT_BAUDRATE = false;
 /*###############################################################################################################################*/
 
@@ -130,19 +137,64 @@ void setup() {
       getUBX_ACK(revertDefault);
       USE_DEFAULT_BAUDRATE = false;
     #endif
-  }    
+  }
+  
+  if ( !rf95.init() )
+  {
+    Serial.println("Init sender failed");
+  }
+  else
+  {
+    Serial.println("Init sender succeeded");
+    rf95.setFrequency(433.00);
+    rf95.setModemConfig(RH_RF95::Bw31_25Cr48Sf512);
+    rf95.setTxPower(13, false); 
+    uint8_t data[] = "Sender started";
+    rf95.send(data, sizeof(data));  
+    rf95.waitPacketSent(); 
+  }  
 }
+
+#define GPS_BUFFERSIZE 120
+boolean GPS_checksum_calc = false;
+char c;
+char buffer[GPS_BUFFERSIZE];
+int numc;
+int i;
+int bufferidx;
+uint8_t GPS_checksum;
 
 void loop() {
-
-  static unsigned long lastSendTime = 0;
-  unsigned long now = millis();
   
-  while ( nss.available() > 0 ) // && now - lastSendTime > 500)
-  {
-    char c = nss.read();
-    Serial.print(c);
-
-    //lastSendTime = now; 
+  numc = nss.available();
+  if (numc > 0)
+  for (i=0;i<numc;i++){
+    c = nss.read();
+    if (c == '$'){                      // NMEA Start
+      bufferidx = 0;
+      buffer[bufferidx++] = c;
+      GPS_checksum = 0;
+      GPS_checksum_calc = true;
+      continue;
+    }
+    if (c == '\r'){                     // NMEA End
+      buffer[bufferidx++] = 0;
+      
+      String myString = String((char *)buffer);
+      Serial.println(myString);
+      rf95.send((uint8_t *)&buffer, sizeof(buffer));
+      rf95.waitPacketSent();
+    }
+    else {
+      if (bufferidx < (GPS_BUFFERSIZE-1)){
+        if (c == '*')
+          GPS_checksum_calc = false;    // Checksum calculation end
+          buffer[bufferidx++] = c;
+          if (GPS_checksum_calc)
+            GPS_checksum ^= c;            // XOR 
+      }
+      else
+      bufferidx=0;   // Buffer overflow : restart
+    }
   }
-}
+} // Loop

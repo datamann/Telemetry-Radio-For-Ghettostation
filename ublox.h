@@ -1,3 +1,12 @@
+/*Ghettostation
+Active messages : 
+    NAV-POSLLH Geodetic Position Solution, PAGE 66 of datasheet
+    NAV-VELNED Velocity Solution in NED, PAGE 71 of datasheet
+    NAV-STATUS Receiver Navigation Status
+      or 
+    NAV-SOL Navigation Solution Information*/
+ 
+ 
  // Set the navigation mode (Airborne, 1G)
   /*Serial.print("Setting uBlox nav mode: ");
   uint8_t setNav[] = {0xB5,0x62,0x06,0x24,0x24,0x00,0xFF,0xFF,0x06,0x03,0x00,0x00,0x00,
