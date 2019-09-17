@@ -8,7 +8,9 @@
 
 void turnOnNMEADefaultSet(){
   // Enable default NMEA packets
-  Serial.print("Switching on default NMEA packets: ");
+  #ifdef DEBUG
+    Serial.print("Switching on default NMEA packets: ");
+  #endif  
   uint8_t setDefaultOn[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10, //(GxGGA)
                             0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x01,0x01,0xFC,0x12, //(GxGLL)
                             0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x02,0x01,0xFD,0x14, //(GxGSA)
@@ -21,7 +23,9 @@ void turnOnNMEADefaultSet(){
 }
 
 void turnOffNMEA(){
-  Serial.print("Switching off all NMEA packets: ");
+  #ifdef DEBUG
+    Serial.print("Switching off all NMEA packets: ");
+  #endif  
   uint8_t setALLOff[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x00,0xFA,0x0F, //(GxGGA)
                          0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x01,0x00,0xFB,0x11, //(GxGLL)
                          0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x02,0x00,0xFC,0x13, //(GxGSA)
@@ -48,7 +52,9 @@ void turnOffNMEA(){
 
 void turnOnNMEA(){
   // Enable NMEAs
-  Serial.print("Switching on all NMEA packets: ");
+  #ifdef DEBUG
+    Serial.print("Switching on all NMEA packets: ");
+  #endif
   uint8_t setALLOn[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10, //(GxGGA)
                         0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x01,0x01,0xFC,0x12, //(GxGLL)
                         0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x02,0x01,0xFD,0x14, //(GxGSA)
@@ -76,7 +82,9 @@ void turnOnNMEA(){
 void turnOnNMEAGhettostation()
 {
   turnOffNMEA();
-  Serial.print("Switching on NMEA packets for Ghettostation: ");
+  #ifdef DEBUG
+    Serial.print("Switching on NMEA packets for Ghettostation: ");
+  #endif
   uint8_t turnOnNMEAGths[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10, // $GPGGA : Global Positioning System Fix Data
                               0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x05,0x01,0x00,0x1A  // $GPVTG : Ttack and Ground Speed
                              };
@@ -106,14 +114,20 @@ void sendNMEA ( char s[] )
            break;
       }
   }
-    Serial.println( nss.print(s) );
+    #ifdef DEBUG
+      Serial.println( nss.print(s) );
+    #endif   
     
     while ( nss.available() )
     {
       char c = nss.read();
-      Serial.print(c);
+      #ifdef DEBUG
+        Serial.print(c);
+      #endif
     }
-    Serial.println();
+    #ifdef DEBUG
+      Serial.println();
+    #endif
 }
 
 // Switch off GLL

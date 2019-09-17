@@ -131,7 +131,10 @@ boolean getUBX_ACK ( uint8_t *MSG )
   uint8_t ackByteID = 0;
   uint8_t ackPacket[10];
   unsigned long startTime = millis();
-  Serial.print(" * Reading ACK response: ");
+  
+  #ifdef DEBUG
+    Serial.print(" * Reading ACK response: ");
+  #endif
  
   // Construct the expected ACK packet    
   ackPacket[0] = 0xB5;    // header
@@ -158,15 +161,19 @@ boolean getUBX_ACK ( uint8_t *MSG )
     if ( ackByteID > 9 )
     {
         // All packets in order!
-        Serial.println(" (SUCCESS!)");
+        #ifdef DEBUG
+          Serial.println(" (SUCCESS!)");  
+        #endif        
         BAUDRATE_OK = true;
         return true;
     }
  
     // Timeout if no valid response in 3 seconds
     if ( millis() - startTime > 3000 )
-    { 
-      Serial.println(" (FAILED!)");
+    {
+      #ifdef DEBUG
+        Serial.println(" (FAILED!)");
+      #endif
       BAUDRATE_OK = false;
       return false;
     }
@@ -198,7 +205,9 @@ void autoBaud()
     for ( int i=0; i<6; i++ )
     {
       // Switch baud rates on the software serial
-      Serial.println(String("Switching to ") + baudRate[i] + String(" for GPS port."));
+      #ifdef DEBUG
+        Serial.println(String("Switching to ") + baudRate[i] + String(" for GPS port."));
+      #endif      
       nss.begin(baudRate[i]);
       delay(2000);
 
@@ -216,9 +225,11 @@ void autoBaud()
 
 void checkConnectivity()
 {
-  Serial.println();
-  Serial.print("Checking connectivity...");
-  Serial.println();
+  #ifdef DEBUG
+    Serial.println();
+    Serial.print("Checking connectivity...");
+    Serial.println();
+  #endif
   uint8_t test[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10};
   sendUBX(test, sizeof(test)/sizeof(uint8_t));
   getUBX_ACK(test);

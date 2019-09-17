@@ -11,6 +11,8 @@
 #include <RH_RF95.h>
 RH_RF95 rf95;
 
+#define DEBUG
+
 /*#############################################- LoRA DEFINES - READ CAREFULLY -######################################################*/
 static const uint32_t FREQ = 433.00;
 //static const uint32_t FREQ = 868.00;
@@ -24,8 +26,8 @@ static const uint32_t RFPOWER = 13;
 //#define SET_FACTORY_DEFAULT
 
 // Only activate one satellite system!
-#define USE_DEFAULT     // GPS,Galileo,QZSS,Glonass
-//#define USE_GPS_QZSS  // Only GPS & QZSS. By UBLOX NMEA documentation, It's recomended to both.
+//#define USE_DEFAULT     // GPS,Galileo,QZSS,Glonass
+#define USE_GPS_QZSS  // Only GPS & QZSS. By UBLOX NMEA documentation, It's recomended to both.
 //#define USE_GALILEO   // Only Galileo
 //#define USE_GLONASS   // Only Glonass
 //#define USE_BEIDOU    // Only BeiDou
@@ -79,24 +81,32 @@ void setup() {
   if ( BAUDRATE_OK )
   {
     #ifdef DATARATE_1_HZ
-      Serial.print(txtToDisplayDR);
+      #ifdef DEBUG
+        Serial.print(txtToDisplayDR);
+      #endif      
       sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
       getUBX_ACK(setRate);
     #endif
     #ifdef DATARATE_5_HZ
-      Serial.print(txtToDisplayDR);
+      #ifdef DEBUG
+        Serial.print(txtToDisplayDR);
+      #endif
       sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
       getUBX_ACK(setRate);
     #endif
     #ifdef DATARATE_10_HZ
-      Serial.print(txtToDisplayDR);
+      #ifdef DEBUG
+        Serial.print(txtToDisplayDR);
+      #endif
       sendUBX(setRate, sizeof(setRate)/sizeof(uint8_t));
       getUBX_ACK(setRate);
     #endif
 
     if ( USE_DEFAULT_BAUDRATE )
     {
-      Serial.print("Trying to configure new baud setting...");
+      #ifdef DEBUG
+        Serial.print("Trying to configure new baud setting...");
+      #endif      
       uint8_t baudRate = setBaudRate(BAUDRATE);
       sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
       getUBX_ACK(baudRate);
@@ -107,11 +117,15 @@ void setup() {
       }
       else
       {
-        Serial.print(String("GPS is now configured to use baud setting: ") + BAUDRATE);
+        #ifdef DEBUG
+          Serial.print(String("GPS is now configured to use baud setting: ") + BAUDRATE);
+        #endif        
       }
     }
 
-    Serial.print(txtToDisplay);
+    #ifdef DEBUG
+      Serial.print(txtToDisplay);
+    #endif    
     sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
     getUBX_ACK(activateSats);
 
@@ -132,7 +146,9 @@ void setup() {
     #endif
 
     #ifdef SET_FACTORY_DEFAULT
-      Serial.print(txtToDisplayFD);
+      #ifdef DEBUG
+        Serial.print(txtToDisplayFD);
+      #endif      
       sendUBX(revertDefault, sizeof(revertDefault)/sizeof(uint8_t));
       getUBX_ACK(revertDefault);
       USE_DEFAULT_BAUDRATE = false;
@@ -141,21 +157,30 @@ void setup() {
   
   if ( !rf95.init() )
   {
-    Serial.println("Init sender failed");
+    #ifdef DEBUG
+      Serial.println("Init sender failed");
+    #endif
   }
   else
   {
-    Serial.println("Init sender succeeded");
+    #ifdef DEBUG
+      Serial.println("Init sender succeeded");
+    #endif
     rf95.setFrequency(433.00);
-    rf95.setModemConfig(RH_RF95::Bw31_25Cr48Sf512);
-    rf95.setTxPower(13, false); 
+    //rf95.setFrequency(868.00);
+    //rf95.setModemConfig(RH_RF95::Bw31_25Cr48Sf512);  // Bw = 31.25 kHz, Cr = 4/8, Sf = 512chips/symbol, CRC on. Slow+long range.
+    //rf95.setModemConfig(RH_RF95::Bw125Cr48Sf4096);   // Bw = 125 kHz, Cr = 4/8, Sf = 4096chips/symbol, CRC on. Slow+long range.
+    rf95.setModemConfig(RH_RF95::Bw500Cr45Sf128);    // Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range.
+    //rf95.setModemConfig(RH_RF95::Bw125Cr45Sf128);      // Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Default medium range.
+    rf95.setTxPower(13, false);                        // With useRFO false, valid values are from +5 to +23, 13 = default
+    
     uint8_t data[] = "Sender started";
     rf95.send(data, sizeof(data));  
-    rf95.waitPacketSent(); 
-  }  
+    rf95.waitPacketSent();
+  }
 }
 
-#define GPS_BUFFERSIZE 120
+#define GPS_BUFFERSIZE 74
 boolean GPS_checksum_calc = false;
 char c;
 char buffer[GPS_BUFFERSIZE];
@@ -163,8 +188,12 @@ int numc;
 int i;
 int bufferidx;
 uint8_t GPS_checksum;
+boolean a,b;
 
 void loop() {
+
+  //while (nss.available())
+    //c = nss.read();Serial.print(c);
   
   numc = nss.available();
   if (numc > 0)
@@ -179,11 +208,50 @@ void loop() {
     }
     if (c == '\r'){                     // NMEA End
       buffer[bufferidx++] = 0;
+
+      if ( strncmp(buffer,"$GPGGA",6) == 0 )
+      {
+        a = true;
+        b = false;
+        
+        //Serial.println("$GPGGA");
+        #ifdef DEBUG
+          String myString = String((char *)buffer);
+          Serial.println(myString);
+        #endif
+        if (a){
+        rf95.send((uint8_t *)&buffer, sizeof(buffer));
+        rf95.waitPacketSent();
+        };
+      }
+      else if ( strncmp(buffer,"$GPVTG",6) == 0 )
+      {
+        b = true;
+        a = false;
+        
+        //Serial.println("$GPVTG");
+        #ifdef DEBUG
+          String myString = String((char *)buffer);
+          Serial.println(myString);
+        #endif
+        
+        if(b){
+        rf95.send((uint8_t *)&buffer, sizeof(buffer));
+        rf95.waitPacketSent();
+        };
+      }
+      else
+      {
+        Serial.println("No packets");
+      }
       
-      String myString = String((char *)buffer);
-      Serial.println(myString);
-      rf95.send((uint8_t *)&buffer, sizeof(buffer));
-      rf95.waitPacketSent();
+      /*#ifdef DEBUG
+        String myString = String((char *)buffer);
+        Serial.println(myString);
+      #endif*/
+      
+      //rf95.send((uint8_t *)&buffer, sizeof(buffer));
+      //rf95.waitPacketSent();
     }
     else {
       if (bufferidx < (GPS_BUFFERSIZE-1)){
@@ -191,7 +259,7 @@ void loop() {
           GPS_checksum_calc = false;    // Checksum calculation end
           buffer[bufferidx++] = c;
           if (GPS_checksum_calc)
-            GPS_checksum ^= c;            // XOR 
+            GPS_checksum ^= c;          // XOR 
       }
       else
       bufferidx=0;   // Buffer overflow : restart
