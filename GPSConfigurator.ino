@@ -188,7 +188,7 @@ int numc;
 int i;
 int bufferidx;
 uint8_t GPS_checksum;
-boolean a,b;
+boolean a = true, b = true;
 
 void loop() {
 
@@ -209,25 +209,24 @@ void loop() {
     if (c == '\r'){                     // NMEA End
       buffer[bufferidx++] = 0;
 
-      if ( strncmp(buffer,"$GPGGA",6) == 0 )
+      if ( strncmp(buffer,"$GPGGA",6) == 0 && a)
       {
-        a = true;
-        b = false;
+        a = false;
+        b = true;
         
         //Serial.println("$GPGGA");
         #ifdef DEBUG
           String myString = String((char *)buffer);
           Serial.println(myString);
         #endif
-        if (a){
+        
         rf95.send((uint8_t *)&buffer, sizeof(buffer));
         rf95.waitPacketSent();
-        };
       }
-      else if ( strncmp(buffer,"$GPVTG",6) == 0 )
+      else if ( strncmp(buffer,"$GPVTG",6) == 0 && b)
       {
-        b = true;
-        a = false;
+        b = false;
+        a = true;
         
         //Serial.println("$GPVTG");
         #ifdef DEBUG
@@ -235,10 +234,9 @@ void loop() {
           Serial.println(myString);
         #endif
         
-        if(b){
         rf95.send((uint8_t *)&buffer, sizeof(buffer));
         rf95.waitPacketSent();
-        };
+        delay(200);
       }
       else
       {
