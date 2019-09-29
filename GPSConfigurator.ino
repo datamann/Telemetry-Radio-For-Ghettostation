@@ -207,6 +207,7 @@ void loop() {
       continue;
     }
     if (c == '\r'){                     // NMEA End
+      buffer[bufferidx++] = c;
       buffer[bufferidx++] = 0;
 
       if ( strncmp(buffer,"$GPGGA",6) == 0 && a)
