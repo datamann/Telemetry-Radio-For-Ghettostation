@@ -34,10 +34,15 @@ static const uint32_t RFPOWER = 13;
 //#define USE_ALL       // GPS,SBAS,Galileo,IMES,QZSS,Glonass
 
 // Only activate one!
-#define NMEA_Ghettostation              // For Ghettostation - $GPGGA : Global Positioning System Fix Data - $GPVTG : Ttack and Ground Speed
-//#define turn_On_Default_NMEA_Packets  // Turn on default NMEA packets
-//#define turn_Off_All_NMEA_Packets     // Turn off all NMEA packets - It is possible to finetune packets
-//#define turn_On_All_NMEA_Packets      // Turn on all NMEA packets - It is possible to finetune packets
+#define UBX
+//#define NMEA
+  #ifdef NMEA
+    #define NMEA_Ghettostation              // For Ghettostation - $GPGGA : Global Positioning System Fix Data - $GPVTG : Ttack and Ground Speed
+    //#define turn_On_Default_NMEA_Packets  // Turn on default NMEA packets
+    //#define turn_Off_All_NMEA_Packets     // Turn off all NMEA packets - It is possible to finetune packets
+    //#define turn_On_All_NMEA_Packets      // Turn on all NMEA packets - It is possible to finetune packets
+  #endif
+
 
 // Configure GPS datarate.
 // Only activate one!
@@ -64,8 +69,12 @@ SoftwareSerial nss(RXPin, TXPin);
 boolean BAUDRATE_OK;
 
 #include "gps.h"
-#include "nmea.h"
-#include "ublox.h"
+#ifdef NMEA
+  #include "nmea.h"
+#endif
+#ifdef UBX
+  #include "ublox.h"
+#endif
 #include "gpsStartup.h"
 #include "code.h"
 
@@ -181,19 +190,122 @@ void setup() {
 }
 
 #define GPS_BUFFERSIZE 74
-boolean GPS_checksum_calc = false;
-char c;
-char buffer[GPS_BUFFERSIZE];
-int numc;
-int i;
-int bufferidx;
-uint8_t GPS_checksum;
-boolean a = true, b = true;
 
 void loop() {
+  #ifdef NMEA
+    nmea();
+  #endif
+  #ifdef UBX
+    ubx();
+  #endif
+}
 
-  //while (nss.available())
-    //c = nss.read();Serial.print(c);
+void ubx(){
+  static unsigned long GPS_timer=0;
+  byte data;
+  int numc;
+  int UBX_step=0;
+  
+  numc = Serial1.available();
+  if (numc > 0)
+  {
+    for (int i=0;i<numc;i++)  // Process bytes received
+    {
+      data = Serial1.read();      
+      switch(UBX_step)     //Normally we start from zero. This is a state machine
+      {
+        case 0:
+          if(data==0xB5)  // UBX sync char 1
+            UBX_step++;   //OH first data packet is correct, so jump to the next step
+          break; 
+        case 1:  
+          if(data==0x62)  // UBX sync char 2
+            UBX_step++;   //ooh! The second data packet is correct, jump to the step 2
+          else 
+            UBX_step=0;   //Nop, is not correct so restart to step zero and try again.     
+          break;
+        case 2:
+          //UBX_class=data;
+          ubx_checksum(UBX_class);
+          UBX_step++;
+          break;
+        case 3:
+          UBX_id=data;
+          ubx_checksum(UBX_id);
+          UBX_step++;
+          break;
+        case 4:
+          UBX_payload_length_hi=data;
+          ubx_checksum(UBX_payload_length_hi);
+          UBX_step++;
+          // We check if the payload lenght is valid...
+          if (UBX_payload_length_hi>=UBX_MAXPAYLOAD)
+          {
+            if (PrintErrors)
+              Serial.println("ERR:GPS_BAD_PAYLOAD_LENGTH!!");          
+              UBX_step=0;   //Bad data, so restart to step zero and try again.     
+              ck_a=0;
+              ck_b=0;
+          }
+          break;
+        case 5:
+          UBX_payload_length_lo=data;
+          ubx_checksum(UBX_payload_length_lo);
+          UBX_step++;
+          UBX_payload_counter=0;
+          break;
+        case 6:         // Payload data read...
+          if (UBX_payload_counter < UBX_payload_length_hi)  // We stay in this state until we reach the payload_length
+          {
+            UBX_buffer[UBX_payload_counter] = data;
+            ubx_checksum(data);
+            UBX_payload_counter++;
+            if (UBX_payload_counter==UBX_payload_length_hi)
+            UBX_step++;
+          }
+          break;
+        case 7:
+          UBX_ck_a=data;   // First checksum byte
+          UBX_step++;
+          break;
+        case 8:
+          UBX_ck_b=data;   // Second checksum byte
+          
+          // We end the GPS read...
+          if((ck_a==UBX_ck_a)&&(ck_b==UBX_ck_b))   // Verify the received checksum with the generated checksum.. 
+            parse_ubx_gps();                      // Parse the new GPS packet
+          else
+          {
+            if (PrintErrors)
+              Serial.println("ERR:GPS_CHK!!");
+          }
+          // Variable initialization
+          UBX_step=0;
+          ck_a=0;
+          ck_b=0;
+          GPS_timer=millis(); //Restarting timer...
+          break;
+      }
+    }    // End for...
+    // If we don´t receive GPS packets in 2 seconds => Bad FIX state
+    if ((millis() - GPS_timer)>2000)
+    {
+      Fix = 0;
+      if (PrintErrors)
+      Serial.println("ERR:GPS_TIMEOUT!!");
+    }
+  }
+}
+
+void nmea() {
+  boolean GPS_checksum_calc = false;
+  char c;
+  char buffer[GPS_BUFFERSIZE];
+  int numc;
+  int i;
+  int bufferidx;
+  uint8_t GPS_checksum;
+  boolean a = true, b = true;
   
   numc = nss.available();
   if (numc > 0)
@@ -243,14 +355,6 @@ void loop() {
       {
         Serial.println("No packets");
       }
-      
-      /*#ifdef DEBUG
-        String myString = String((char *)buffer);
-        Serial.println(myString);
-      #endif*/
-      
-      //rf95.send((uint8_t *)&buffer, sizeof(buffer));
-      //rf95.waitPacketSent();
     }
     else {
       if (bufferidx < (GPS_BUFFERSIZE-1)){
