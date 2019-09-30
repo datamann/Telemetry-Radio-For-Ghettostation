@@ -17,7 +17,7 @@ void turnOnUBXGhettostation()
     NAV-SOL Navigation Solution Information*/
 
   #ifdef DEBUG
-    Serial.print("Switching on UBLOX need for Ghettostation: ");
+    Serial.print("Switching on UBLOX needed for Ghettostation: ");
   #endif 
   uint8_t setUBXOn[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0x0E,0x47, //NAV-POSLLH on
                         0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x03,0x01,0x0F,0x49, //NAV-STATUS on

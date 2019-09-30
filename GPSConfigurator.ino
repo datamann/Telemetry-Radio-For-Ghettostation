@@ -33,10 +33,17 @@ static const uint32_t RFPOWER = 13;
 //#define USE_BEIDOU    // Only BeiDou
 //#define USE_ALL       // GPS,SBAS,Galileo,IMES,QZSS,Glonass
 
-// Only activate one!
+// Only activate one, UBX or NMEA!
 #define UBX
-//#define NMEA
+  #ifdef UBX
+    // Only activate one
+    #define UBX_Ghettostation               // For Ghettostation - Active messages : NAV-POSLLH Geodetic Position Solution, NAV-VELNED Velocity Solution in NED, NAV-STATUS Receiver Navigation Status or NAV-SOL Navigation Solution Information
+    //#define turn_On_All_UBX_Packages      // Turns on all UBX packets.
+  #endif
+
+//define NMEA
   #ifdef NMEA
+    // Only activate one
     #define NMEA_Ghettostation              // For Ghettostation - $GPGGA : Global Positioning System Fix Data - $GPVTG : Ttack and Ground Speed
     //#define turn_On_Default_NMEA_Packets  // Turn on default NMEA packets
     //#define turn_Off_All_NMEA_Packets     // Turn off all NMEA packets - It is possible to finetune packets
@@ -154,6 +161,17 @@ void setup() {
       turnOnNMEA();
     #endif
 
+    #ifdef UBX
+      #ifdef UBX_Ghettostation
+        turnOffUBX();               //Turns off all UBX packages.
+        turnOnUBXGhettostation();   // Turns on only UBX packages that is needed for Ghettostation.
+      #endif
+      #ifdef turn_On_All_UBX_Packages
+        turnOffUBX();               //Turns off all UBX packages.
+        turnOnUBX();                // Turns on all UBX packages.
+      #endif
+    #endif
+
     #ifdef SET_FACTORY_DEFAULT
       #ifdef DEBUG
         Serial.print(txtToDisplayFD);
@@ -189,8 +207,6 @@ void setup() {
   }
 }
 
-#define GPS_BUFFERSIZE 74
-
 void loop() {
   #ifdef NMEA
     nmea();
@@ -200,102 +216,82 @@ void loop() {
   #endif
 }
 
+#define UBX_MAXPAYLOAD 60
 void ubx(){
   static unsigned long GPS_timer=0;
   byte data;
   int numc;
   int UBX_step=0;
+  uint8_t UBX_class;
+  uint8_t ck_a=0;
+  uint8_t ck_b=0;
+  uint8_t UBX_id;
+  uint8_t UBX_payload_length_hi;
+  uint8_t UBX_payload_length_lo;
+  uint8_t PrintErrors;
+  uint8_t UBX_payload_counter;
+  uint8_t UBX_buffer[UBX_MAXPAYLOAD];
+  uint8_t UBX_ck_a;
+  uint8_t UBX_ck_b;
+  int bufferidx;
+  //uint8_t Fix;        // 1:GPS FIX   0:No FIX (normal logic)
+
+  uint8_t ubxData[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0x0E,0x47, //NAV-POSLLH on
+                        0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x03,0x01,0x0F,0x49, //NAV-STATUS on
+                        0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x06,0x01,0x12,0x4F, //NAV-SOL on
+                        0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x12,0x01,0x1E,0x67  //NAV-VELNED on
+                        };
   
-  numc = Serial1.available();
+  numc = nss.available();
   if (numc > 0)
   {
     for (int i=0;i<numc;i++)  // Process bytes received
     {
-      data = Serial1.read();      
-      switch(UBX_step)     //Normally we start from zero. This is a state machine
-      {
-        case 0:
-          if(data==0xB5)  // UBX sync char 1
-            UBX_step++;   //OH first data packet is correct, so jump to the next step
-          break; 
-        case 1:  
-          if(data==0x62)  // UBX sync char 2
-            UBX_step++;   //ooh! The second data packet is correct, jump to the step 2
-          else 
-            UBX_step=0;   //Nop, is not correct so restart to step zero and try again.     
-          break;
-        case 2:
-          //UBX_class=data;
-          ubx_checksum(UBX_class);
-          UBX_step++;
-          break;
-        case 3:
-          UBX_id=data;
-          ubx_checksum(UBX_id);
-          UBX_step++;
-          break;
-        case 4:
-          UBX_payload_length_hi=data;
-          ubx_checksum(UBX_payload_length_hi);
-          UBX_step++;
-          // We check if the payload lenght is valid...
-          if (UBX_payload_length_hi>=UBX_MAXPAYLOAD)
-          {
-            if (PrintErrors)
-              Serial.println("ERR:GPS_BAD_PAYLOAD_LENGTH!!");          
-              UBX_step=0;   //Bad data, so restart to step zero and try again.     
-              ck_a=0;
-              ck_b=0;
-          }
-          break;
-        case 5:
-          UBX_payload_length_lo=data;
-          ubx_checksum(UBX_payload_length_lo);
-          UBX_step++;
-          UBX_payload_counter=0;
-          break;
-        case 6:         // Payload data read...
-          if (UBX_payload_counter < UBX_payload_length_hi)  // We stay in this state until we reach the payload_length
-          {
-            UBX_buffer[UBX_payload_counter] = data;
-            ubx_checksum(data);
-            UBX_payload_counter++;
-            if (UBX_payload_counter==UBX_payload_length_hi)
-            UBX_step++;
-          }
-          break;
-        case 7:
-          UBX_ck_a=data;   // First checksum byte
-          UBX_step++;
-          break;
-        case 8:
-          UBX_ck_b=data;   // Second checksum byte
-          
-          // We end the GPS read...
-          if((ck_a==UBX_ck_a)&&(ck_b==UBX_ck_b))   // Verify the received checksum with the generated checksum.. 
-            parse_ubx_gps();                      // Parse the new GPS packet
-          else
-          {
-            if (PrintErrors)
-              Serial.println("ERR:GPS_CHK!!");
-          }
-          // Variable initialization
-          UBX_step=0;
-          ck_a=0;
-          ck_b=0;
-          GPS_timer=millis(); //Restarting timer...
-          break;
+      // Page 96:
+      // file:///C:/Users/sbsiv/Desktop/GPS/u-blox6_ReceiverDescrProtSpec_(GPS.G6-SW-10018)_Public.pdf
+      // UBX_class = 0x01
+      // Check INAV: gps_ublox.c line: 605 gpsNewFrameUBLOX()
+    
+      data = nss.read();
+      if(data == 0xB5){
+        bufferidx = 0;
+        UBX_buffer[bufferidx++] = data;
+        //Serial.print("Got first sync byte! ");
+        //Serial.println(data,HEX);
+      }else if (data == 0x62){
+        UBX_buffer[bufferidx++] = data;
+        //Serial.print("Got second sync byte! ");
+        //Serial.println(data,HEX);
       }
-    }    // End for...
-    // If we don´t receive GPS packets in 2 seconds => Bad FIX state
-    if ((millis() - GPS_timer)>2000)
-    {
-      Fix = 0;
-      if (PrintErrors)
-      Serial.println("ERR:GPS_TIMEOUT!!");
-    }
-  }
+      if(strncmp(UBX_buffer,"0xB5,0x62",9)){
+        Serial.println("Good start :-)! ");
+        //UBX_buffer[bufferidx++] = data;
+        UBX_class = data;
+        ubx_checksum(UBX_class);
+      }
+      else{
+        UBX_buffer[bufferidx++] = 0;
+        Serial.println("NOT a good start :-(! ");
+      }
+    
+    
+    
+     
+    } // End for...
+  } // End if numc
+} // End function
+
+// Ublox checksum algorithm
+void ubx_checksum(byte ubx_data)
+{
+  uint8_t ck_a;     // Packet checksum
+  uint8_t ck_b;
+  
+  ck_a += ubx_data;
+  ck_b += ck_a; 
 }
+
+#define GPS_BUFFERSIZE 74
 
 void nmea() {
   boolean GPS_checksum_calc = false;
