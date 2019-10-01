@@ -217,6 +217,9 @@ void loop() {
 }
 
 #define UBX_MAXPAYLOAD 60
+#define MAX_UBLOX_PAYLOAD_SIZE 256
+#define UBLOX_BUFFER_SIZE MAX_UBLOX_PAYLOAD_SIZE
+
 void ubx(){
   static unsigned long GPS_timer=0;
   byte data;
@@ -236,6 +239,19 @@ void ubx(){
   int bufferidx;
   //uint8_t Fix;        // 1:GPS FIX   0:No FIX (normal logic)
 
+  static uint8_t _step;
+  static bool _skip_packet;
+  static uint8_t _class;
+  static uint8_t _ck_a;
+  static uint8_t _ck_b;
+  static uint8_t _msg_id;
+  static uint16_t _payload_length;
+  static uint16_t _payload_counter;
+  uint8_t bytes[UBLOX_BUFFER_SIZE];
+  uint8_t bytesToSend[UBLOX_BUFFER_SIZE];
+  uint8_t PREAMBLE1 = 0xB5;
+  uint8_t PREAMBLE2 = 0x62;
+
   uint8_t ubxData[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0x0E,0x47, //NAV-POSLLH on
                         0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x03,0x01,0x0F,0x49, //NAV-STATUS on
                         0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x06,0x01,0x12,0x4F, //NAV-SOL on
@@ -253,29 +269,120 @@ void ubx(){
       // Check INAV: gps_ublox.c line: 605 gpsNewFrameUBLOX()
     
       data = nss.read();
-      if(data == 0xB5){
-        bufferidx = 0;
-        UBX_buffer[bufferidx++] = data;
-        //Serial.print("Got first sync byte! ");
-        //Serial.println(data,HEX);
-      }else if (data == 0x62){
-        UBX_buffer[bufferidx++] = data;
-        //Serial.print("Got second sync byte! ");
-        //Serial.println(data,HEX);
+      //bool parsed = false;
+
+    switch (_step) {
+        case 0: // Sync char 1 (0xB5)
+            if (PREAMBLE1 == data) {
+                _skip_packet = false;
+                _step++;
+                Serial.println(String("Preamble 1 found: ") + (data,HEX));
+            }
+            break;
+        case 1: // Sync char 2 (0x62)
+            if (PREAMBLE2 != data) {
+                _step = 0;
+                break;
+            }
+            _step++;
+            Serial.println(String("Preamble 2 found: ") + (data,HEX));
+            break;
+        case 2: // Class
+            _step++;
+            _class = data;
+            Serial.println(String("Class found: ") + (data,HEX));
+            _ck_b = _ck_a = data;   // reset the checksum accumulators
+            break;
+        case 3: // Id
+            _step++;
+            _ck_b += (_ck_a += data);       // checksum byte
+            _msg_id = data;
+            Serial.println(String("ID: ") + (data,HEX));
+            break;
+        case 4: // Payload length (part 1)
+            _step++;
+            _ck_b += (_ck_a += data);       // checksum byte
+            _payload_length = data; // payload length low byte
+            Serial.println(String("Payload length part 1: ") + (data,HEX));
+            break;
+        case 5: // Payload length (part 2)
+            _step++;
+            _ck_b += (_ck_a += data);       // checksum byte
+            _payload_length |= (uint16_t)(data << 8);
+            if (_payload_length > MAX_UBLOX_PAYLOAD_SIZE ) {
+                // we can't receive the whole packet, just log the error and start searching for the next packet.
+                //gpsStats.errors++;
+                _step = 0;
+                break;
+            }
+            // prepare to receive payload
+            _payload_counter = 0;
+            if (_payload_length == 0) {
+                _step = 7;
+            }
+            Serial.println(String("Payload length part 2: ") + (data,HEX));
+            break;
+        case 6:
+            _ck_b += (_ck_a += data);       // checksum byte
+            if (_payload_counter < MAX_UBLOX_PAYLOAD_SIZE) {
+                bytes[_payload_counter] = data;
+            }
+            // NOTE: check counter BEFORE increasing so that a payload_size of 65535 is correctly handled.  This can happen if garbage data is received.
+            if (_payload_counter ==  _payload_length - 1) {
+                _step++;
+            }
+            _payload_counter++;
+            Serial.println(String("Case 6: ") + (data,HEX));
+            break;
+        case 7:
+            _step++;
+            if (_ck_a != data) {
+                _skip_packet = true;          // bad checksum
+                //gpsStats.errors++;
+                _step = 0;
+            }
+            break;
+        case 8:
+            _step = 0;
+            if (_ck_b != data) {
+                //gpsStats.errors++;
+                break;              // bad checksum
+            }
+
+            //gpsStats.packetCount++;
+
+            if (_skip_packet) {
+                break;
+            }
+            //********************************* Ready to send ***********************************************
+            //sprintf(bytesToSend,"%b%b%b", PREAMBLE1, PREAMBLE2, _class); //%b , bytes
+            sprintf(bytesToSend,"%b", _class); //%b , bytes
+            #ifdef DEBUG
+            /*if(_class == 0x01){
+              Serial.println("******************Class er 01!******************");
+            }*/
+              //String myString = bytes,HEX);
+              //Serial.println(myString);
+
+              //Serial.print(PREAMBLE1,HEX);
+              //Serial.print(PREAMBLE2,HEX);
+              //Serial.print(_class,HEX);
+              /*for(int i = 0; i < sizeof(bytesToSend); i++)
+              {                
+                Serial.print(bytesToSend[i],HEX);
+              }*/
+            #endif
+
+            //memcpy(send_buffer.message.payload.bytes, galileo_payload, sizeof(galileo_payload));
+            //sprintf(buf,"%s %s %c", lat, lng, DataToSend.sats);
+          
+            //rf95.send((uint8_t *)&bytes, sizeof(bytes));
+            //rf95.waitPacketSent();
+            /*if (gpsParceFrameUBLOX()) {
+                parsed = true;
+            }*/
       }
-      if(strncmp(UBX_buffer,"0xB5,0x62",9)){
-        Serial.println("Good start :-)! ");
-        //UBX_buffer[bufferidx++] = data;
-        UBX_class = data;
-        ubx_checksum(UBX_class);
-      }
-      else{
-        UBX_buffer[bufferidx++] = 0;
-        Serial.println("NOT a good start :-(! ");
-      }
-    
-    
-    
+      //return parsed;    
      
     } // End for...
   } // End if numc
