@@ -115,12 +115,12 @@ void sendNMEA ( char s[] )
       }
   }
     #ifdef DEBUG
-      Serial.println( nss.print(s) );
+      Serial.println( gps.print(s) );
     #endif   
     
-    while ( nss.available() )
+    while ( gps.available() )
     {
-      char c = nss.read();
+      char c = gps.read();
       #ifdef DEBUG
         Serial.print(c);
       #endif

@@ -88,14 +88,14 @@ void turnOffUBX()
   uint8_t b, bytePos = 0;
   uint8_t getNAV5[] = { 0xB5, 0x62, 0x06, 0x24, 0x00, 0x00, 0x2A, 0x84 }; //Poll NAV5 status
  
-  nss.flush();
+  gps.flush();
   unsigned long startTime = millis();
   sendUBX(getNAV5, sizeof(getNAV5)/sizeof(uint8_t));
  
   while (1) {
     // Make sure data is available to read
-    if (nss.available()) {
-      b = nss.read();
+    if (gps.available()) {
+      b = gps.read();
  
       if(bytePos == 8){
         navmode = b;

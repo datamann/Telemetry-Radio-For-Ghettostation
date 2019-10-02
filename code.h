@@ -52,7 +52,7 @@ if ( c == '$' )
       else
       {
         recvIdx = 0;   // Buffer overflow : restart
-        nss.flush();
+        gps.flush();
         Serial.println("Buffer overflow!");
       }
     }
