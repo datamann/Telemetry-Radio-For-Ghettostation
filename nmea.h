@@ -5,7 +5,7 @@
  * 11.09.2019
  * @see The GNU Public License (GPL) Version 3
 */
-
+/*
 void turnOnNMEADefaultSet(){
   // Enable default NMEA packets
   #ifdef DEBUG

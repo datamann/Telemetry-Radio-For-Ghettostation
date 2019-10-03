@@ -118,6 +118,7 @@ void setup() {
       getUBX_ACK(setRate);
     #endif
 
+/*
     if ( USE_DEFAULT_BAUDRATE )
     {
       #ifdef DEBUG
@@ -137,7 +138,7 @@ void setup() {
           Serial.print(String("GPS is now configured to use baud setting: ") + BAUDRATE);
         #endif        
       }
-    }
+    } */
 
     #ifdef DEBUG
       Serial.print(txtToDisplay);
@@ -171,7 +172,7 @@ void setup() {
         turnOnUBX();                // Turns on all UBX packages.
       #endif
     #endif
-
+/*
     #ifdef SET_FACTORY_DEFAULT
       #ifdef DEBUG
         Serial.print(txtToDisplayFD);
@@ -179,7 +180,7 @@ void setup() {
       sendUBX(revertDefault, sizeof(revertDefault)/sizeof(uint8_t));
       getUBX_ACK(revertDefault);
       USE_DEFAULT_BAUDRATE = false;
-    #endif
+    #endif */
   }
   
   if ( !rf95.init() )
@@ -202,8 +203,8 @@ void setup() {
     rf95.setTxPower(13, false);                        // With useRFO false, valid values are from +5 to +23, 13 = default
     
     uint8_t data[] = "Sender started";
-    //rf95.send(data, sizeof(data));  
-    //rf95.waitPacketSent();
+    rf95.send(data, sizeof(data));  
+    rf95.waitPacketSent();
   }
 }
 
@@ -252,11 +253,14 @@ void ubx(){
   uint8_t PREAMBLE1 = 0xB5;
   uint8_t PREAMBLE2 = 0x62;
 
-  /*uint8_t ubxData[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0x0E,0x47, //NAV-POSLLH on
+/*uint8_t ubxData[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x02,0x01,0x0E,0x47, //NAV-POSLLH on
                         0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x03,0x01,0x0F,0x49, //NAV-STATUS on
                         0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x06,0x01,0x12,0x4F, //NAV-SOL on
                         0xB5,0x62,0x06,0x01,0x03,0x00,0x01,0x12,0x01,0x1E,0x67  //NAV-VELNED on
                         };*/
+  /*rf95.send((uint8_t *)&ubxData, sizeof(ubxData));
+  rf95.waitPacketSent();
+  delay(200);*/
   
   numc = gps.available();
   if (numc > 0)
@@ -267,6 +271,9 @@ void ubx(){
       // file:///C:/Users/sbsiv/Desktop/GPS/u-blox6_ReceiverDescrProtSpec_(GPS.G6-SW-10018)_Public.pdf
       // UBX_class = 0x01
       // Check INAV: gps_ublox.c line: 605 gpsNewFrameUBLOX()
+
+      // Check: https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library/blob/092d489ca7bb8590a76be8e93d5511314b20487d/src/SparkFun_Ublox_Arduino_Library.h
+      // Check: https://github.com/loginov-rocks/UbxGps/blob/master/src/UbxGps.h
     
       data = gps.read();
       
@@ -275,8 +282,8 @@ void ubx(){
             if (PREAMBLE1 == data) {
                 _skip_packet = false;
                 _step++;
-                Serial.println("************* START *************");
-                Serial.println(String("Case 0 - Preamble 1 found: ") + (data));
+                //Serial.println("************* START *************");
+                //Serial.println(String("Case 0 - Preamble 1 found: ") + (data));
             }
             break;
         case 1: // Sync char 2 (0x62)
@@ -285,30 +292,30 @@ void ubx(){
                 break;
             }
             _step++;
-            Serial.println(String("Case 1 - Preamble 2 found: ") + (data));
+            //Serial.println(String("Case 1 - Preamble 2 found: ") + (data));
             break;
         case 2: // Class
             _step++;
             _class = data;
-            if(_class == 0x06 || _class == 0x01){
+            /*if(_class == 0x06 || _class == 0x01){
               Serial.println(String("Case 2 - NAV Class found: ") + (data));
-            }
+            }*/
             _ck_b = _ck_a = data;   // reset the checksum accumulators
             break;
         case 3: // Id
             _step++;
             _ck_b += (_ck_a += data);       // checksum byte
             _msg_id = data;
-            if(_class == 0x01){
+            /*if(_class == 0x01){
               Serial.println(String("Case 3 - NAV ID found: ") + (_msg_id));
-            }
-            Serial.println(String("Case 3 - ID: ") + (data));
+            }*/
+            //Serial.println(String("Case 3 - ID: ") + (data));
             break;
         case 4: // Payload length (part 1)
             _step++;
             _ck_b += (_ck_a += data);       // checksum byte
             _payload_length = data; // payload length low byte
-            Serial.println(String("Case 4 - Payload length part 1: ") + (data));
+            //Serial.println(String("Case 4 - Payload length part 1: ") + (data));
             break;
         case 5: // Payload length (part 2)
             _step++;
@@ -317,16 +324,16 @@ void ubx(){
             if (_payload_length > MAX_UBLOX_PAYLOAD_SIZE ) {
                 // we can't receive the whole packet, just log the error and start searching for the next packet.
                 _step = 0;
-                Serial.println(String("Case 5 - To long payload length!!!: ") + (data));
+                //Serial.println(String("Case 5 - To long payload length!!!: ") + (data));
                 break;
             }
             // prepare to receive payload
             _payload_counter = 0;
             if (_payload_length == 0) {
                 _step = 7;
-                Serial.println(String("Case 5 - Payload length is 0 !!!: ") + (_payload_length));
+                //Serial.println(String("Case 5 - Payload length is 0 !!!: ") + (_payload_length));
             }
-            Serial.println(String("Case 5 - Payload length part 2: ") + (_payload_length));
+            //Serial.println(String("Case 5 - Payload length part 2: ") + (_payload_length));
             break;
         case 6:
             _ck_b += (_ck_a += data);       // checksum byte
@@ -338,47 +345,49 @@ void ubx(){
                 _step++;
             }
             _payload_counter++;
-            Serial.println(String("Case 6: ") + (data));
+            //Serial.println(String("Case 6: ") + (data));
             break;
         case 7:
             _step++;
-            Serial.println(String("Case 7: ") + (data));
+            //Serial.println(String("Case 7: ") + (data));
             if (_ck_a != data) {
                 _skip_packet = true;          // bad checksum
                 _step = 0;
-                Serial.println("Case 7 - Bad checksum, skipping packet!!!: ");
+                //Serial.println("Case 7 - Bad checksum, skipping packet!!!: ");
             }
             break;
         case 8:
             _step = 0;
-            Serial.println(String("Case 8: ") + (data));
+            //Serial.println(String("Case 8: ") + (data));
             if (_ck_b != data) {
-                //gpsStats.errors++;
-                Serial.println("Case 8 - Checksum error, canselling!!!: ");
+                Serial.println("Case 8 - Checksum error, cancelling!!!: ");
                 break;              // bad checksum
             }
-            //gpsStats.packetCount++;
             if (_skip_packet) {
-                Serial.println("Case 8 - Packet error, canselling!!!: ");
+                Serial.println("Case 8 - Packet error, cancelling!!!: ");
                 break;
             }
+
+            //sprintf(bytesToSend,"%b%b%b%b%c%c", PREAMBLE1, PREAMBLE2, _class, _msg_id, "Stig", "\r");
+            //sprintf(bytesToSend,"%c%c%c%c%c", 'S', 't', 'i', 'g', '\n');
+            
+            sprintf(bytesToSend,"%c%c%c%c%c", PREAMBLE1,PREAMBLE2,_class,_msg_id,bytes);
+            for(int i = 0; i < sizeof(bytesToSend); i++)
+            {                
+              Serial.print(bytesToSend[i],HEX);
+            }
+            
             //********************************* Ready to send ***********************************************
-            //sprintf(bytesToSend,"%b%b%b", PREAMBLE1, PREAMBLE2, _class); //%b , bytes
+            
             //sprintf(bytesToSend,"%b", bytes); //%b , bytes
             #ifdef DEBUG
-            /*if(_class == 0x01){
-              Serial.println("******************Class er 01!******************");
-            }*/
               //String myString = bytes,HEX);
               //Serial.println(myString);
 
               //Serial.print(PREAMBLE1,HEX);
               //Serial.print(PREAMBLE2,HEX);
               //Serial.print(_class,HEX);
-              /*for(int i = 0; i < sizeof(bytesToSend); i++)
-              {                
-                Serial.print(bytesToSend[i],HEX);
-              }*/
+              
             #endif
 
             //memcpy(send_buffer.message.payload.bytes, galileo_payload, sizeof(galileo_payload));
@@ -386,9 +395,9 @@ void ubx(){
           
             //rf95.send((uint8_t *)&bytesToSend, sizeof(bytesToSend));
             //rf95.waitPacketSent();
-            //delay(1000);
+            //delay(200);
             
-      } // End Case
+      } // End Case      
     } // End for...
   } // End if numc
 } // End function
@@ -403,8 +412,8 @@ void ubx_checksum(byte ubx_data)
   ck_b += ck_a; 
 }
 
-#define GPS_BUFFERSIZE 74
-
+//#define GPS_BUFFERSIZE 74
+/*
 void nmea() {
   boolean GPS_checksum_calc = false;
   char c;
@@ -476,4 +485,4 @@ void nmea() {
       bufferidx=0;   // Buffer overflow : restart
     }
   }
-} // Loop
+} // Loop*/
