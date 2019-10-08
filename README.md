@@ -1,0 +1,1 @@
+This project will be splitted into two projects. This project will continue to support GPS configurations from code and the other project will be called Telemetry-Radio-For-Ghettostation. This change is mainly caused by hitting memory limitations on arduino.
