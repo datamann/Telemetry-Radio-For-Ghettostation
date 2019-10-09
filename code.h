@@ -14,51 +14,6 @@
   //char nmea[] = "$PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28\r\n";  // Disable all messages except GGA and RMC
   //sendNMEA(nmea);
 
-/*#define GPS_BUFFERSIZE 300//83
-byte recvBuffer[GPS_BUFFERSIZE];
-boolean GPS_checksum_calc = false;
-byte recvIdx;
-char c;
-
-if ( c == '$' )
-    {
-      GPS_checksum_calc = false;
-      recvIdx = 0;
-      recvBuffer[recvIdx++] = c;
-    }
-    else if ( c == '\r' || c == '\n' )            // || c == '\r\n'
-    {
-      recvBuffer[recvIdx++] = 0;
-      if ( GPS_checksum_calc )
-      {  
-        rf95.send((uint8_t *)&recvBuffer, sizeof(recvBuffer));
-        rf95.waitPacketSent();
-        lastSendTime = now;
-        String myString = String((char *)recvBuffer);
-        Serial.println(myString);
-      }
-      continue;
-    }
-    else
-    {
-      if ( recvIdx < (GPS_BUFFERSIZE - 1) )
-      {
-        if ( c == '*' )
-        {
-          GPS_checksum_calc = true;
-        }
-        recvBuffer[recvIdx++] = c;
-      }
-      else
-      {
-        recvIdx = 0;   // Buffer overflow : restart
-        nss.flush();
-        Serial.println("Buffer overflow!");
-      }
-    }
-
-
-
 /*
 static const char * nmeaPackages[13] = {
   "$GNDTM",

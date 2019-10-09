@@ -120,7 +120,7 @@ void sendUBX ( uint8_t *MSG, uint8_t len )
 {
   for ( int i=0; i<len; i++ )
   {
-    nss.write(MSG[i]);
+    gps.write(MSG[i]);
   }
 }
 
@@ -179,9 +179,9 @@ boolean getUBX_ACK ( uint8_t *MSG )
     }
  
     // Make sure data is available to read
-    if ( nss.available() )
+    if ( gps.available() )
     {
-      b = nss.read();
+      b = gps.read();
  
       // Check that bytes arrive in sequence as per expected ACK packet
       if ( b == ackPacket[ackByteID] )
@@ -208,7 +208,7 @@ void autoBaud()
       #ifdef DEBUG
         Serial.println(String("Switching to ") + baudRate[i] + String(" for GPS port."));
       #endif      
-      nss.begin(baudRate[i]);
+      gps.begin(baudRate[i]);
       delay(2000);
 
       // Used for testing GPS configuration changes. If successfull we have the correct baud settings.

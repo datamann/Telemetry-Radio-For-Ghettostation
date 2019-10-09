@@ -90,8 +90,7 @@ void turnOnNMEAGhettostation()
                              };
   sendUBX(turnOnNMEAGths, sizeof(turnOnNMEAGths)/sizeof(uint8_t));
   getUBX_ACK(turnOnNMEAGths);
-}
-  
+}  
 
 // Send a byte array of NMEA protocol to the GPS
 void sendNMEA ( char s[] )
@@ -115,12 +114,12 @@ void sendNMEA ( char s[] )
       }
   }
     #ifdef DEBUG
-      Serial.println( nss.print(s) );
+      Serial.println( gps.print(s) );
     #endif   
     
-    while ( nss.available() )
+    while ( gps.available() )
     {
-      char c = nss.read();
+      char c = gps.read();
       #ifdef DEBUG
         Serial.print(c);
       #endif
