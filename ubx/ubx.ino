@@ -33,23 +33,9 @@ static const uint32_t RFPOWER = 13;
 //#define USE_BEIDOU    // Only BeiDou
 //#define USE_ALL       // GPS,SBAS,Galileo,IMES,QZSS,Glonass
 
-// Only activate one, UBX or NMEA!
-#define UBX
-  #ifdef UBX
-    // Only activate one
-    #define UBX_Ghettostation               // For Ghettostation - Active messages : NAV-POSLLH Geodetic Position Solution, NAV-VELNED Velocity Solution in NED, NAV-STATUS Receiver Navigation Status or NAV-SOL Navigation Solution Information
-    //#define turn_On_All_UBX_Packages      // Turns on all UBX packets.
-  #endif
-
-//#define NMEA
-  #ifdef NMEA
-    // Only activate one
-    #define NMEA_Ghettostation              // For Ghettostation - $GPGGA : Global Positioning System Fix Data - $GPVTG : Ttack and Ground Speed
-    //#define turn_On_Default_NMEA_Packets  // Turn on default NMEA packets
-    //#define turn_Off_All_NMEA_Packets     // Turn off all NMEA packets - It is possible to finetune packets
-    //#define turn_On_All_NMEA_Packets      // Turn on all NMEA packets - It is possible to finetune packets
-  #endif
-
+// Only activate one
+#define UBX_Ghettostation               // For Ghettostation - Active messages : NAV-POSLLH Geodetic Position Solution, NAV-VELNED Velocity Solution in NED, NAV-STATUS Receiver Navigation Status or NAV-SOL Navigation Solution Information
+//#define turn_On_All_UBX_Packages      // Turns on all UBX packets.
 
 // Configure GPS datarate.
 // Only activate one!
@@ -76,15 +62,9 @@ SoftwareSerial gps(RXPin, TXPin);
 boolean BAUDRATE_OK;
 
 #include "gps.h"
-#ifdef NMEA
-  #include "nmea.h"
-#endif
-#ifdef UBX
-  #include "ublox.h"
-  #include "nmea.h"
-#endif
+#include "ublox.h"
 #include "gpsStartup.h"
-#include "code.h"
+#include "code.h" // Temp code space
 
 void setup() {
  
@@ -122,7 +102,7 @@ void setup() {
     if ( USE_DEFAULT_BAUDRATE )
     {
       #ifdef DEBUG
-        Serial.print("Trying to configure new baud setting...");
+        Serial.print(F("Trying to configure new baud setting..."));
       #endif      
       uint8_t baudRate = setBaudRate(BAUDRATE);
       sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
@@ -135,7 +115,8 @@ void setup() {
       else
       {
         #ifdef DEBUG
-          Serial.print(String("GPS is now configured to use baud setting: ") + BAUDRATE);
+          Serial.print(F("GPS is now configured to use baud setting: "));
+          Serial.print(BAUDRATE);
         #endif        
       }
     }
@@ -146,33 +127,13 @@ void setup() {
     sendUBX(activateSats, sizeof(activateSats)/sizeof(uint8_t));
     getUBX_ACK(activateSats);
 
-    #ifdef NMEA_Ghettostation
-      turnOnNMEAGhettostation();
+    #ifdef UBX_Ghettostation
+      turnOffUBX();               // Turns off all UBX packages.
+      turnOnUBXGhettostation();   // Turns on only UBX packages that is needed for Ghettostation.
     #endif
-
-    #ifdef turn_On_Default_NMEA_Packets
-      turnOnNMEADefaultSet();
-    #endif
-
-    #ifdef turn_Off_All_NMEA_Packets
-      turnOffNMEA();
-    #endif
-
-    #ifdef turn_On_All_NMEA_Packets
-      turnOnNMEA();
-    #endif
-
-    #ifdef UBX
-      #ifdef UBX_Ghettostation
-        turnOffNMEA();
-        turnOffUBX();               //Turns off all UBX packages.
-        turnOnUBXGhettostation();   // Turns on only UBX packages that is needed for Ghettostation.
-      #endif
-      #ifdef turn_On_All_UBX_Packages
-        turnOffNMEA();
-        turnOffUBX();               //Turns off all UBX packages.
-        turnOnUBX();                // Turns on all UBX packages.
-      #endif
+    #ifdef turn_On_All_UBX_Packages
+      turnOffUBX();               // Turns off all UBX packages.
+      turnOnUBX();                // Turns on all UBX packages.
     #endif
 
     #ifdef SET_FACTORY_DEFAULT
@@ -188,13 +149,13 @@ void setup() {
   if ( !rf95.init() )
   {
     #ifdef DEBUG
-      Serial.println("Init sender failed");
+      Serial.println(F("Init sender failed"));
     #endif
   }
   else
   {
     #ifdef DEBUG
-      Serial.println("Init sender succeeded");
+      Serial.println(F("Init sender succeeded"));
     #endif
     rf95.setFrequency(433.00);
     //rf95.setFrequency(868.00);
@@ -211,12 +172,7 @@ void setup() {
 }
 
 void loop() {
-  #ifdef NMEA
-    nmea();
-  #endif
-  #ifdef UBX
-    ubx();
-  #endif
+  ubx();
 }
 
 #define MAX_UBLOX_PAYLOAD_SIZE 256
@@ -225,23 +181,19 @@ void loop() {
 void ubx(){
   byte data;
   int numc;
-  static bool _skip_packet;
-  static uint8_t _class;
-  static uint8_t _ck_a;
-  static uint8_t _ck_b;
-  static uint8_t _msg_id;
-  static uint16_t _payload_length;
-  static uint16_t _payload_counter;
+  bool _skip_packet;
+  uint8_t _class;
+  uint8_t _ck_a;
+  uint8_t _ck_b;
+  uint8_t _msg_id;
+  uint16_t _payload_length;
+  uint16_t _payload_counter;
   uint8_t bytes[UBLOX_BUFFER_SIZE];
   uint8_t bytesToSend[UBLOX_BUFFER_SIZE];
   uint8_t PREAMBLE1 = 0xB5;
   uint8_t PREAMBLE2 = 0x62;
   int bufferidx = 0;
   int _step = 0;
-
-  /*rf95.send((uint8_t *)&ubxData, sizeof(ubxData));
-  rf95.waitPacketSent();
-  delay(200);*/
   
   numc = gps.available();
   if (numc > 0)
@@ -260,7 +212,7 @@ void ubx(){
       switch (_step) {
         case 0: // Sync char 1
           
-          Serial.print("Step: ");
+          Serial.print(F("Step: "));
           Serial.println(_step);
           
           if(PREAMBLE1 != data){
@@ -269,14 +221,14 @@ void ubx(){
             break;
           }
 
-          Serial.print("Sync byte 1: ");
+          Serial.print(F("Sync byte 1: "));
           Serial.println(data);
           
           _skip_packet = false;
           bytesToSend[bufferidx++] = data;
           _step++;
 
-          Serial.print("Step: ");
+          Serial.print(F("Step: "));
           Serial.println(_step);
           
           break;
@@ -287,7 +239,7 @@ void ubx(){
             break;
           }
 
-          Serial.print("Sync byte 2: ");
+          Serial.print(F("Sync byte 2: "));
           Serial.println(data);
           
           bytesToSend[bufferidx++] = data;
@@ -299,7 +251,7 @@ void ubx(){
           _step++;
           _ck_b = _ck_a = data;   // reset the checksum accumulators
 
-          Serial.print("Class: ");
+          Serial.print(F("Class: "));
           Serial.println(_class);
           
           break;
@@ -309,7 +261,7 @@ void ubx(){
           _step++;
           _ck_b += (_ck_a += data);       // checksum byte
 
-          Serial.print("ID: ");
+          Serial.print(F("ID: "));
           Serial.println(_msg_id);
           
           break;
@@ -319,7 +271,7 @@ void ubx(){
           _step++;
           _ck_b += (_ck_a += data);       // checksum byte
 
-          Serial.print("Payload length byte 1: ");
+          Serial.print(F("Payload length byte 1: "));
           Serial.println(_payload_length);
 
           break;
@@ -329,7 +281,7 @@ void ubx(){
            _step++;
            _ck_b += (_ck_a += data);       // checksum byte
 
-           Serial.print("Payload length byte 2: ");
+           Serial.print(F("Payload length byte 2: "));
            Serial.println(_payload_length);
 
            if (_payload_length > MAX_UBLOX_PAYLOAD_SIZE) {
@@ -337,7 +289,7 @@ void ubx(){
                 _step = 0;
                 bufferidx = 0;
 
-                Serial.print("Case 5 - To long payload length!!!: ");
+                Serial.print(F("Case 5 - To long payload length!!!: "));
                 Serial.println(_payload_length);
 
                 break;
@@ -347,50 +299,50 @@ void ubx(){
             _payload_counter = 0;
             if (_payload_length == 0) {
                 _step = 7;
-                Serial.print("Case 5 - Payload length is 0 !!!: ");
+                Serial.print(F("Case 5 - Payload length is 0 !!!: "));
                 Serial.println(_payload_length);
             }
           break;
         case 6: // Payload
           _ck_b += (_ck_a += data);       // checksum byte
           
-          Serial.print("Case 6: Payload: ");
+          Serial.print(F("Case 6: Payload: "));
           Serial.println(_payload_counter);
           
           if (_payload_counter < MAX_UBLOX_PAYLOAD_SIZE) {
             
-              Serial.print("Case 6, Adding payload to buffer ");
+              Serial.print(F("Case 6, Adding payload to buffer "));
               Serial.println(_payload_counter);
               
               bytes[_payload_counter] = data;
               bytesToSend[bufferidx++] = data;
           }else{
-            Serial.print("Case 6, Max payload size reached!!!");
+            Serial.print(F("Case 6, Max payload size reached!!!"));
             Serial.println(_payload_counter);
           }
           // NOTE: check counter BEFORE increasing so that a payload_size of 65535 is correctly handled.  This can happen if garbage data is received.
           if (_payload_counter == _payload_length - 1) {
               _step++;
-              Serial.print("Case 6, Payload counter is equal to payload length, let's move on... ");
+              Serial.print(F("Case 6, Payload counter is equal to payload length, let's move on... "));
               Serial.println(_payload_counter);              
           }else{
             _payload_counter++;
           }
-          Serial.print("Case 6 - Step: ");
+          Serial.print(F("Case 6 - Step: "));
           Serial.println(_step);
           break;
         case 7: // Checksum byte 1
-          Serial.print("Case 7 - Step: ");
+          Serial.print(F("Case 7 - Step: "));
           Serial.println(_step);
           
           if (_ck_a != data) {
                 _skip_packet = true;          // bad checksum
                 _step = 0;
                 bufferidx = 0;
-                Serial.println("Case 7 - Bad checksum, skipping packet!!!: ");
+                Serial.println(F("Case 7 - Bad checksum, skipping packet!!!: "));
                 break;
           }
-          Serial.println("Case 7 - Checksum OK!, Moving ON...");
+          Serial.println(F("Case 7 - Checksum OK!, Moving ON..."));
           
           bytesToSend[bufferidx++] = data;
           _step++;
@@ -401,97 +353,22 @@ void ubx(){
           bufferidx = 0;
           
           if (_ck_b != data) {
-                Serial.println("Case 8 - Checksum byte 2 error, cancelling!!!: ");
+                Serial.println(F("Case 8 - Checksum byte 2 error, cancelling!!!: "));
                 break;              // bad checksum
           }
           if (_skip_packet) {
-              Serial.println("Case 8 - Checksum byte 1 error, skipping packet, cancelling!!!: ");
+              Serial.println(F("Case 8 - Checksum byte 1 error, skipping packet, cancelling!!!: "));
               break;
           }
 
-          for ( int i=0; i<sizeof(bytesToSend); i++ )
+          /*for ( int i=0; i<sizeof(bytesToSend); i++ )
           {
             Serial.println(bytesToSend[i]);
-          }
+          }*/
 
-          Serial.println("Case 8 - Checksum OK!, Packet complete!");
+          Serial.println(F("Case 8 - Checksum OK!, Packet complete!"));
           //break;
       } // End Switch... 
     } // End for...
   } // End if numc
 } // End function
-
-#define GPS_BUFFERSIZE 74
-
-void nmea() {
-  boolean GPS_checksum_calc = false;
-  char c;
-  char buffer[GPS_BUFFERSIZE];
-  int numc;
-  int i;
-  int bufferidx;
-  uint8_t GPS_checksum;
-  boolean a = true, b = true;
-  
-  numc = gps.available();
-  if (numc > 0)
-  for (i=0;i<numc;i++){
-    c = gps.read();
-    if (c == '$'){                      // NMEA Start
-      bufferidx = 0;
-      buffer[bufferidx++] = c;
-      GPS_checksum = 0;
-      GPS_checksum_calc = true;
-      continue;
-    }
-    if (c == '\r'){                     // NMEA End
-      buffer[bufferidx++] = c;
-      buffer[bufferidx++] = 0;
-
-      if ( strncmp(buffer,"$GPGGA",6) == 0 && a)
-      {
-        a = false;
-        b = true;
-        
-        //Serial.println("$GPGGA");
-        #ifdef DEBUG
-          String myString = String((char *)buffer);
-          Serial.println(myString);
-        #endif
-        
-        rf95.send((uint8_t *)&buffer, sizeof(buffer));
-        rf95.waitPacketSent();
-      }
-      else if ( strncmp(buffer,"$GPVTG",6) == 0 && b)
-      {
-        b = false;
-        a = true;
-        
-        //Serial.println("$GPVTG");
-        #ifdef DEBUG
-          String myString = String((char *)buffer);
-          Serial.println(myString);
-        #endif
-        
-        rf95.send((uint8_t *)&buffer, sizeof(buffer));
-        rf95.waitPacketSent();
-        delay(200);
-      }
-      else
-      {
-        Serial.println("No packets");
-      }
-    }
-    else {
-      if (bufferidx < (GPS_BUFFERSIZE-1)){
-        if (c == '*')
-          GPS_checksum_calc = false;    // Checksum calculation end
-          buffer[bufferidx++] = c;
-          if (GPS_checksum_calc)
-            GPS_checksum ^= c;          // XOR 
-      }
-      else
-      bufferidx=0;   // Buffer overflow : restart
-    }
-  }
-} // Loop

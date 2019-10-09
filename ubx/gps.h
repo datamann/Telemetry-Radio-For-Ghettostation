@@ -162,7 +162,7 @@ boolean getUBX_ACK ( uint8_t *MSG )
     {
         // All packets in order!
         #ifdef DEBUG
-          Serial.println(" (SUCCESS!)");  
+          Serial.println(F(" (SUCCESS!)"));  
         #endif        
         BAUDRATE_OK = true;
         return true;
@@ -172,7 +172,7 @@ boolean getUBX_ACK ( uint8_t *MSG )
     if ( millis() - startTime > 3000 )
     {
       #ifdef DEBUG
-        Serial.println(" (FAILED!)");
+        Serial.println(F(" (FAILED!)"));
       #endif
       BAUDRATE_OK = false;
       return false;
@@ -187,7 +187,6 @@ boolean getUBX_ACK ( uint8_t *MSG )
       if ( b == ackPacket[ackByteID] )
       { 
         ackByteID++;
-        //Serial.print(b, HEX);
       }
       else
       {
@@ -206,7 +205,9 @@ void autoBaud()
     {
       // Switch baud rates on the software serial
       #ifdef DEBUG
-        Serial.println(String("Switching to ") + baudRate[i] + String(" for GPS port."));
+        Serial.print(F("Switching to "));
+        Serial.print(baudRate[i]);
+        Serial.print(F(" for GPS port."));
       #endif      
       gps.begin(baudRate[i]);
       delay(2000);
@@ -227,7 +228,7 @@ void checkConnectivity()
 {
   #ifdef DEBUG
     Serial.println();
-    Serial.print("Checking connectivity...");
+    Serial.print(F("Checking connectivity..."));
     Serial.println();
   #endif
   uint8_t test[] = {0xB5,0x62,0x06,0x01,0x03,0x00,0xF0,0x00,0x01,0xFB,0x10};

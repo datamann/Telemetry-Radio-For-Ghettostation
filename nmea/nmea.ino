@@ -105,7 +105,7 @@ void setup() {
     if ( USE_DEFAULT_BAUDRATE )
     {
       #ifdef DEBUG
-        Serial.print("Trying to configure new baud setting...");
+        Serial.print(F("Trying to configure new baud setting..."));
       #endif      
       uint8_t baudRate = setBaudRate(BAUDRATE);
       sendUBX(baudRate, sizeof(baudRate)/sizeof(uint8_t));
@@ -118,7 +118,8 @@ void setup() {
       else
       {
         #ifdef DEBUG
-          Serial.print(String("GPS is now configured to use baud setting: ") + BAUDRATE);
+          Serial.print(F("GPS is now configured to use baud setting: "));
+          Serial.println(BAUDRATE);
         #endif        
       }
     }
@@ -158,13 +159,13 @@ void setup() {
   if ( !rf95.init() )
   {
     #ifdef DEBUG
-      Serial.println("Init sender failed");
+      Serial.println(F("Init sender failed"));
     #endif
   }
   else
   {
     #ifdef DEBUG
-      Serial.println("Init sender succeeded");
+      Serial.println(F("Init sender succeeded"));
     #endif
     rf95.setFrequency(433.00);
     //rf95.setFrequency(868.00);
@@ -212,10 +213,7 @@ void nmea() {
       buffer[bufferidx++] = 0;
 
       if ( strncmp(buffer,"$GPGGA",6) == 0 && a)
-      {
-        a = false;
-        b = true;
-        
+      {        
         //Serial.println("$GPGGA");
         #ifdef DEBUG
           String myString = String((char *)buffer);
@@ -223,13 +221,14 @@ void nmea() {
         #endif
         
         rf95.send((uint8_t *)&buffer, sizeof(buffer));
-        rf95.waitPacketSent();
+        boolean s = rf95.waitPacketSent();
+        if(s){
+          a = false;
+          b = true;
+        };
       }
       else if ( strncmp(buffer,"$GPVTG",6) == 0 && b)
       {
-        b = false;
-        a = true;
-        
         //Serial.println("$GPVTG");
         #ifdef DEBUG
           String myString = String((char *)buffer);
@@ -237,12 +236,15 @@ void nmea() {
         #endif
         
         rf95.send((uint8_t *)&buffer, sizeof(buffer));
-        rf95.waitPacketSent();
-        delay(200);
+        boolean s = rf95.waitPacketSent();
+        if(s){
+          b = false;
+          a = true;
+        };
       }
       else
       {
-        Serial.println("No packets");
+        Serial.println(F("No packets"));
       }
     }
     else {
