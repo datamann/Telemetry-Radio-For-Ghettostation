@@ -59,7 +59,7 @@ static const uint32_t BAUDRATE = 9600;
 
 static const int RXPin = 3, TXPin = 4;      // Used when RX/TX are not used.
 static const uint32_t GPSBaud = BAUDRATE;
-static const uint32_t SerialBaud = 9600;
+static const uint32_t SerialBaud = 57600; // 9600, 19200, 38400, 57600
 SoftwareSerial gps(RXPin, TXPin);
 
 boolean BAUDRATE_OK;
@@ -185,78 +185,69 @@ void loop() {
   nmea();
 }
 
-#define GPS_BUFFERSIZE 74
+//#define DEBUG0
+#define DEBUG1
+#define GPS_BUFFERSIZE 80
 
 void nmea() {
-  boolean GPS_checksum_calc = false;
   char c;
   char buffer[GPS_BUFFERSIZE];
   int numc;
   int i;
   int bufferidx;
-  uint8_t GPS_checksum;
-  boolean a = true, b = true;
+  boolean gga = 0;
+  boolean vtg = 0;
   
   numc = gps.available();
   if (numc > 0)
-  for (i=0;i<numc;i++){
-    c = gps.read();
-    if (c == '$'){                      // NMEA Start
-      bufferidx = 0;
-      buffer[bufferidx++] = c;
-      GPS_checksum = 0;
-      GPS_checksum_calc = true;
-      continue;
-    }
-    if (c == '\r'){                     // NMEA End
-      buffer[bufferidx++] = c;
-      buffer[bufferidx++] = 0;
+  {
+    for( i = 0; i < numc; i++ ){
+      c = gps.read();
+      
+      #ifdef DEBUG0
+        //Serial.print(F("C contains: "));
+        Serial.print(c);
+      #endif
 
-      if ( strncmp(buffer,"$GPGGA",6) == 0 && a)
-      {        
-        //Serial.println("$GPGGA");
-        #ifdef DEBUG
+      if (c == '$'){                      // NMEA Start
+        bufferidx = 0;
+        buffer[bufferidx++] = c;
+        continue;
+      }
+      if (c == '\r'){        // NMEA End
+        buffer[bufferidx++] = c;
+        buffer[bufferidx++] = 0;
+
+        #ifdef DEBUG1
           String myString = String((char *)buffer);
           Serial.println(myString);
         #endif
         
-        rf95.send((uint8_t *)&buffer, sizeof(buffer));
-        boolean s = rf95.waitPacketSent();
-        if(s){
-          a = false;
-          b = true;
-        };
-      }
-      else if ( strncmp(buffer,"$GPVTG",6) == 0 && b)
-      {
-        //Serial.println("$GPVTG");
-        #ifdef DEBUG
-          String myString = String((char *)buffer);
-          Serial.println(myString);
-        #endif
+        unsigned long now = millis();
+        static unsigned long lastSendTime = 0;
         
-        rf95.send((uint8_t *)&buffer, sizeof(buffer));
-        boolean s = rf95.waitPacketSent();
-        if(s){
-          b = false;
-          a = true;
-        };
-      }
-      else
-      {
-        Serial.println(F("No packets"));
-      }
-    }
-    else {
-      if (bufferidx < (GPS_BUFFERSIZE-1)){
-        if (c == '*')
-          GPS_checksum_calc = false;    // Checksum calculation end
+        if ( now - lastSendTime > 1000 ) {
+          rf95.send((uint8_t *)&buffer, sizeof(buffer));
+          rf95.waitPacketSent();
+          lastSendTime = now;
+        }
+                 
+      }else {
+        if (bufferidx < (GPS_BUFFERSIZE - 1)){
           buffer[bufferidx++] = c;
-          if (GPS_checksum_calc)
-            GPS_checksum ^= c;          // XOR 
-      }
-      else
-      bufferidx=0;   // Buffer overflow : restart
-    }
-  }
-} // Loop
+        }else {
+          bufferidx = 0;   // Buffer overflow : restart
+        }
+      } // If
+    } // For
+  } // Loop
+} // Function
+
+/*void sendData(uint8_t *buf ){
+  rf95.send((uint8_t *)&buf, sizeof(buf));
+  rf95.waitPacketSent();
+   #ifdef DEBUG
+    String myString = String((char *)buf);
+    Serial.println(myString);
+   #endif
+}*/

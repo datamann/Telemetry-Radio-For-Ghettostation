@@ -47,8 +47,8 @@ static const uint32_t RFPOWER = 13;
 boolean USE_DEFAULT_BAUDRATE = false;
 /*###############################################################################################################################*/
 
-static const uint32_t BAUDRATE = 4800;
-//static const uint32_t BAUDRATE = 9600;
+//static const uint32_t BAUDRATE = 4800;
+static const uint32_t BAUDRATE = 9600;
 //static const uint32_t BAUDRATE = 19200;
 //static const uint32_t BAUDRATE = 38400;
 //static const uint32_t BAUDRATE = 57600;
@@ -175,258 +175,144 @@ void loop() {
   ubx();
 }
 
-#define MAX_UBLOX_PAYLOAD_SIZE 512 // 256
-#define UBLOX_BUFFER_SIZE MAX_UBLOX_PAYLOAD_SIZE
-//#define UBX_MAXPAYLOAD 256
+// Page 96: UBX Protocol
+// file:///C:/Users/sbsiv/Desktop/GPS/u-blox6_ReceiverDescrProtSpec_(GPS.G6-SW-10018)_Public.pdf
 
-uint8_t ck_a;     // Packet checksum
-uint8_t ck_b;
+#define MAX_UBLOX_PAYLOAD_SIZE 256
+#define UBLOX_BUFFER_SIZE MAX_UBLOX_PAYLOAD_SIZE
 
 void ubx(){
-  byte data;
-  int numc;
-  bool _skip_packet;
-  uint8_t _class;
-  uint8_t _ck_a;
-  uint8_t _ck_b;
-  uint8_t _msg_id;
-  uint16_t _payload_length;
-  uint16_t _payload_counter;
-  uint8_t bytes[UBLOX_BUFFER_SIZE];
-  uint8_t bytesToSend[UBLOX_BUFFER_SIZE];
+  // UBX Protocol
   uint8_t PREAMBLE1 = 0xB5;
   uint8_t PREAMBLE2 = 0x62;
-  int bufferidx = 0;
-  int _step = 0;
-  static uint8_t dataCheck;
-  static boolean complete;
+  uint8_t _class;  
+  uint8_t _msg_id;
+  uint16_t _payload_length;  
 
-  /*uint8_t UBX_step;
-  uint8_t UBX_class;
-  uint8_t UBX_id;
-  uint8_t UBX_payload_length_hi;
-  uint8_t UBX_payload_length_lo;
-  uint8_t UBX_payload_counter;
-  uint8_t UBX_buffer[UBX_MAXPAYLOAD];
+  // Storage
+  uint8_t bytes[UBLOX_BUFFER_SIZE];
+  uint8_t bytesToSend[UBLOX_BUFFER_SIZE];
+  int bytesToSendidx = 0;
+  byte data;
+
+  // Flow control
+  int numc;
+  int _step = 0;
+  uint16_t _payload_counter;
+
+  // Checksum control
   uint8_t UBX_ck_a;
   uint8_t UBX_ck_b;
-  uint8_t PrintErrors;
-  static unsigned long GPS_timer = 0;*/
+  uint8_t _ck_a;
+  uint8_t _ck_b;
   
   numc = gps.available();
   if (numc > 0)
   {
-    for (int i=0;i<numc;i++)  // Process bytes received
-    {
-      // Page 96:
-      // file:///C:/Users/sbsiv/Desktop/GPS/u-blox6_ReceiverDescrProtSpec_(GPS.G6-SW-10018)_Public.pdf
-      // UBX_class = 0x01
-      // Check INAV: gps_ublox.c line: 605 gpsNewFrameUBLOX()
-
-      // Check: https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library/blob/092d489ca7bb8590a76be8e93d5511314b20487d/src/SparkFun_Ublox_Arduino_Library.h
-      // Check: https://github.com/loginov-rocks/UbxGps/blob/master/src/UbxGps.h
-
-      // To Read:
-      // https://portal.u-blox.com/s/question/0D52p00008HKDqnCAH/calculating-ubx-checksum-correctly-in-python
-      // https://stackoverflow.com/questions/23038037/ublox-neo-6m-ubx-command-sanity-check-with-fletcher-checksum
-      // https://ava.upuaut.net/?p=757
-      // https://github.com/SlashDevin/NeoGPS
-      // https://ukhas.org.uk/guides:ublox_psm
-      // https://github.com/ldab/u-blox-UBX-checksum/blob/master/ubx_checksum.py
-    
-      data = gps.read();
-      
+    for (int i=0;i<numc;i++)              // Process bytes received
+    {    
+      data = gps.read();      
       switch (_step) {
-        case 0: // Sync char 1
-          if(!complete){
-            Serial.print(F("Previous packet was not complete: "));
-            Serial.println(dataCheck);
-          }else{
-            Serial.print(F("Previous packet was complete: "));
-            Serial.println(dataCheck);
-          }
-          
-          Serial.print(F("Step: "));
-          Serial.println(_step);
-          
+        case 0: // Sync char 1          
           if(PREAMBLE1 != data){
             _step = 0;
-            bufferidx = 0;
-            
-            Serial.print(F("Wrong first start byte! Restarting... "));
-            Serial.println(data);
-            
+            bytesToSendidx = 0;
             break;
           }
-
-          Serial.print(F("Sync byte 1: "));
-          Serial.println(data);
-          
-          _skip_packet = false;
-          bytesToSend[bufferidx++] = data;
+          bytesToSend[bytesToSendidx++] = data;
           _step++;
-
-          Serial.print(F("Step: "));
-          Serial.println(_step);
-          
           break;
         case 1: // Sync char 2
           if(PREAMBLE2 != data){
             _step = 0;
-            bufferidx = 0;
-
-            Serial.print(F("Wrong second start byte! Restarting... "));
-            Serial.println(data);
-            
+            bytesToSendidx = 0;
             break;
           }
-
-          Serial.print(F("Sync byte 2: "));
-          Serial.println(data);
-          
-          bytesToSend[bufferidx++] = data;
+          bytesToSend[bytesToSendidx++] = data;
           _step++;
           break;
         case 2: // Class
           _class = data;
-          bytesToSend[bufferidx++] = _class;
+          _ck_b = _ck_a = data;           // reset the checksum accumulators
+          bytesToSend[bytesToSendidx++] = _class;
           _step++;
-          _ck_b = _ck_a = data;   // reset the checksum accumulators
-
-          Serial.print(F("Class: "));
-          Serial.println(_class);
-          
           break;
         case 3: // Id
-          _msg_id = data;
-          bytesToSend[bufferidx++] = _msg_id;
-          _step++;
+          _msg_id = data;          
           _ck_b += (_ck_a += data);       // checksum byte
-
-          Serial.print(F("ID: "));
-          Serial.println(_msg_id);
-          
+          bytesToSend[bytesToSendidx++] = _msg_id;
+          _step++;
           break;
         case 4: // Lenght byte 1
-          _payload_length = data;
-          bytesToSend[bufferidx++] = _payload_length;
-          _step++;
+          _payload_length = data;          
           _ck_b += (_ck_a += data);       // checksum byte
-
-          Serial.print(F("Payload length byte 1: "));
-          Serial.println(_payload_length);
-
+          bytesToSend[bytesToSendidx++] = _payload_length;
+          _step++;
           break;
         case 5: // Lenght byte 2
            _payload_length |= (uint16_t)(data << 8);
-           bytesToSend[bufferidx++] = _payload_length;
-           _step++;
            _ck_b += (_ck_a += data);       // checksum byte
-
-           Serial.print(F("Payload length byte 2: "));
-           Serial.println(_payload_length);
 
            if (_payload_length > MAX_UBLOX_PAYLOAD_SIZE) {
                 // we can't receive the whole packet, just log the error and start searching for the next packet.
                 _step = 0;
-                bufferidx = 0;
-
-                Serial.print(F("Case 5 - To long payload length!!!: "));
-                Serial.println(_payload_length);
-
+                _ck_a = 0;
+                _ck_b = 0;
+                bytesToSendidx = 0;
                 break;
             }
             
             // prepare to receive payload
             _payload_counter = 0;
+            
             if (_payload_length == 0) {
                 _step = 7;
-                Serial.print(F("Case 5 - Payload length is 0 !!!: "));
-                Serial.println(_payload_length);
             }
+            bytesToSend[bytesToSendidx++] = _payload_length;
+            _step++;
           break;
         case 6: // Payload
-          _ck_b += (_ck_a += data);       // checksum byte
-          
-          //Serial.print(F("Case 6: Payload: "));
-          //Serial.println(_payload_counter);
+          _ck_b += (_ck_a += data);         // checksum byte
           
           if (_payload_counter < MAX_UBLOX_PAYLOAD_SIZE) {
-            
-              Serial.print(F("Case 6, Adding payload to buffer "));
-              Serial.println(_payload_counter);
-              
               bytes[_payload_counter] = data;
-              bytesToSend[bufferidx++] = data;
-              complete = 0;
-              dataCheck = data;
-              
-          }else{
-            Serial.print(F("Case 6, Max payload size reached!!!"));
-            Serial.println(_payload_counter);
+              bytesToSend[bytesToSendidx++] = data;
           }
-          // NOTE: check counter BEFORE increasing so that a payload_size of 65535 is correctly handled.  This can happen if garbage data is received.
+          
           if (_payload_counter == _payload_length - 1) {
-              complete = 1;
-              dataCheck = data;
               _step++;
-              Serial.print(F("Case 6, Payload counter is equal to payload length, let's move on... "));
-              Serial.println(_payload_counter);              
           }else{
             _payload_counter++;
           }
-          //Serial.print(F("Case 6 - Step: "));
-          //Serial.println(_step);
           break;
+          
         case 7: // Checksum byte 1
-          Serial.print(F("Case 7 - Step: "));
-          Serial.println(_step);
-          
-          if (_ck_a != data) {
-                _skip_packet = true;          // bad checksum
-                _step = 0;
-                bufferidx = 0;
-                Serial.println(F("Case 7 - Bad checksum, skipping packet!!! "));
-                Serial.print(F("Generated checksum: "));
-                Serial.println(_ck_a);
-                Serial.print(F("Received checksum: "));
-                Serial.println(data);
-                break;
-          }
-          Serial.println(F("Case 7 - Checksum OK!, Moving ON..."));
-          
-          bytesToSend[bufferidx++] = data;
+          UBX_ck_a = data;                  // First checksum byte
+          bytesToSend[bytesToSendidx++] = data;
           _step++;
           break;
-        case 8: // Checksum byte 2
-          _step = 0;
-          bytesToSend[bufferidx++] = data;
-          bufferidx = 0;
           
-          if (_ck_b != data) {
-                Serial.println(F("Case 8 - Checksum byte 2 error, cancelling!!!: "));
-                break;              // bad checksum
-          }
-          if (_skip_packet) {
-              Serial.println(F("Case 8 - Checksum byte 1 error, skipping packet, cancelling!!!: "));
-              break;
-          }
+        case 8: // Checksum byte 2
+          UBX_ck_b = data;                  // Second checksum byte
+          bytesToSend[bytesToSendidx++] = data;
+          
+          if(( _ck_a == UBX_ck_a ) && ( _ck_b == UBX_ck_b )){   // Verify the received checksum with the generated checksum..
+            // Send data
 
-          /*for ( int i=0; i<sizeof(bytesToSend); i++ )
-          {
-            Serial.println(bytesToSend[i]);
-          }*/
-
-          Serial.println(F("Case 8 - Checksum OK!, Packet complete!"));
-          //break;
+            String myString = String((char *)bytesToSend);
+            Serial.println(myString);
+            
+            rf95.send((uint8_t *)&bytesToSend, sizeof(bytesToSend));
+            rf95.waitPacketSent();
+            
+          }     
+          _step = 0;
+          _ck_a = 0;
+          _ck_b = 0;
+          UBX_ck_a = 0;
+          UBX_ck_b = 0;
+          bytesToSendidx = 0;
       } // End Switch... 
     } // End for...
   } // End if numc
 } // End function
-
-// Ublox checksum algorithm
-void ubx_checksum(byte ubx_data)
-{
-  ck_a+=ubx_data;
-  ck_b+=ck_a; 
-}
