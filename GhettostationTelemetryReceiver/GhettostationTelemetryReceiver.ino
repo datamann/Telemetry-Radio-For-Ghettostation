@@ -7,14 +7,14 @@ void setup()
 { 
   Serial.begin(19200);
   
-  //while (!Serial){
     if (!rf95.init()){
       Serial.println("Init failed");
     } else {
       Serial.println("Init succeeded");
     }
-  //}
-  
+
+
+  // Change to match radio module frequency and to tune transmit power and bandwidth
     rf95.setFrequency(433.00);
     //rf95.setFrequency(868.00);
     //rf95.setModemConfig(RH_RF95::Bw31_25Cr48Sf512);  // Bw = 31.25 kHz, Cr = 4/8, Sf = 512chips/symbol, CRC on. Slow+long range.
@@ -23,16 +23,6 @@ void setup()
     //rf95.setModemConfig(RH_RF95::Bw125Cr45Sf128);      // Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Default medium range.
     rf95.setTxPower(13, false);                        // with useRFO false, valid values are from +5 to +23, 13 = default
 }
-
-/*uint8_t buffer[] = {'$','G','P','G','G','A',',','1','2','3','5','1','9',
-                    ',','4','8','0','7','.','0','3','8',',','N',',','0',
-                    '1','1','3','1','.','0','0','0',',','E',',','1',',',
-                    '0','8',',','0','.','9',',','5','4','5','.','4',',',
-                    'M',',','4','6','.','9',',','M',',',',','*','4','7','\n',
-                    '$','G','P','V','T','G',',','3','6','0','.','0',',',
-                    'T',',','3','4','8','.','7',',','M',',','0','0','0',
-                    '.','0',',','N',',','0','0','0','.','0',',','K','*',
-                    '4','3','\n'};*/
 
 #define GPS_BUFFERSIZE 120
 byte recvBuffer[GPS_BUFFERSIZE];
